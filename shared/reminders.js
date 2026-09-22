@@ -52,11 +52,35 @@ export function looksLikeReminder(line, now = new Date()) {
  *   -> { text: "Cancel spotify subscription", at: "2026-11-30", time: "09:00" }
  * @returns {object|null}
  */
+/**
+ * A bare time with no day — "remind me at 4pm to call mom".
+ * Means today if it hasn't passed yet, otherwise tomorrow.
+ */
+function parseTimeOnly(text, now) {
+  const m = String(text).match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i)
+         || String(text).match(/\bat\s+(\d{1,2}):(\d{2})\b/);
+  if (!m) return null;
+
+  let h = parseInt(m[1], 10);
+  const mi = m[2] ? parseInt(m[2], 10) : 0;
+  const ap = (m[3] || "").toLowerCase();
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  if (!(h >= 0 && h <= 23 && mi >= 0 && mi <= 59)) return null;
+
+  const when = new Date(now);
+  when.setHours(h, mi, 0, 0);
+  if (when <= now) when.setDate(when.getDate() + 1);
+
+  const hh = String(h).padStart(2, "0") + ":" + String(mi).padStart(2, "0");
+  return { date: when, time: hh, matched: m[0], index: m.index };
+}
+
 export function parseReminder(line, now = new Date()) {
   const raw = String(line || "").trim();
   if (!raw) return null;
 
-  const hit = parseDatePhrase(raw, now);
+  const hit = parseDatePhrase(raw, now) || parseTimeOnly(raw, now);
   if (!hit) return null;
 
   // Cut the date phrase out, then the "remind me to" preamble, then tidy.

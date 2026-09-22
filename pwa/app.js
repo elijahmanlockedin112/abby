@@ -16,7 +16,7 @@ import { openStore } from "../shared/sync.js";
 import { makeAI } from "../shared/ai.js";
 import { readImage, readPDF, pdfReasonText } from "../shared/inbox.js";
 import { triage, triageSummary } from "../shared/triage.js";
-import { parseReminder, whenWord, fireAt, overdueNote } from "../shared/reminders.js";
+import { parseReminder, makeReminder, whenWord, fireAt, overdueNote, fmt12 } from "../shared/reminders.js";
 import {
   isNative, syncNotifications, flushOverdue, onNotificationTap,
   onResume, askNotifications, haptic
@@ -295,6 +295,105 @@ async function addOne(line) {
   render();
 }
 
+/* ------------------------------------------------------- the composer
+   Chips for the times that actually matter in his day, a real picker for
+   anything else, and blank still means "catch me twice". */
+
+const DAY_CHIPS = [
+  { label: "Today", days: 0 },
+  { label: "Tomorrow", days: 1 },
+  { label: "This weekend", weekend: true }
+];
+
+const TIME_CHIPS = [
+  { label: "Before school", time: "06:40" },
+  { label: "Out of school", time: "15:00" },
+  { label: "Getting home", time: "15:30" },
+  { label: "Evening", time: "17:00" },
+  { label: "Before bed", time: "20:30" }
+];
+
+let pickDate = null;   // "YYYY-MM-DD"
+let pickTime = null;   // "HH:MM" or null = both default slots
+
+function weekendDate(now) {
+  const d = new Date(now);
+  // Saturday, or today if it already is the weekend.
+  const delta = (6 - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + delta);
+  return d;
+}
+
+function paintChips() {
+  const now = new Date();
+
+  const dayHost = $("dayChips");
+  dayHost.textContent = "";
+  for (const c of DAY_CHIPS) {
+    const d = c.weekend ? weekendDate(now) : (() => { const x = new Date(now); x.setDate(x.getDate() + c.days); return x; })();
+    const key = todayKey(d);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = pickDate === key ? "on" : "";
+    b.innerHTML = esc(c.label) + "<small>" + SHORTDAY[d.getDay()] + " " + (d.getMonth() + 1) + "/" + d.getDate() + "</small>";
+    b.addEventListener("click", () => { pickDate = key; $("remDate").value = key; paintChips(); });
+    dayHost.appendChild(b);
+  }
+
+  const timeHost = $("timeChips");
+  timeHost.textContent = "";
+  for (const c of TIME_CHIPS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = pickTime === c.time ? "on" : "";
+    b.innerHTML = esc(c.label) + "<small>" + fmt12(c.time) + "</small>";
+    b.addEventListener("click", () => {
+      pickTime = pickTime === c.time ? null : c.time;
+      $("remTime").value = pickTime || "";
+      paintChips();
+    });
+    timeHost.appendChild(b);
+  }
+
+  $("timeHint").textContent = pickTime
+    ? "One notification, at " + fmt12(pickTime) + "."
+    : "No time set \u2014 I'll catch you twice: 6:40 AM and 5:00 PM.";
+}
+
+function openComposer(prefill) {
+  const now = new Date();
+  pickDate = todayKey(now);
+  pickTime = null;
+  $("remText").value = prefill || "";
+  $("remDate").value = pickDate;
+  $("remTime").value = "";
+  paintChips();
+  $("composer").hidden = false;
+  $("remindBtn").hidden = true;
+  $("remText").focus();
+}
+
+function closeComposer() {
+  $("composer").hidden = true;
+  $("remindBtn").hidden = false;
+}
+
+async function saveComposer() {
+  const text = $("remText").value.trim();
+  if (!text) { $("remText").focus(); return; }
+
+  const at = $("remDate").value || todayKey(new Date());
+  const time = $("remTime").value || null;
+
+  const r = makeReminder({ text: text.charAt(0).toUpperCase() + text.slice(1), at, time, raw: text });
+  await store.commit(s => { s.reminders.push(r); });
+  await syncNotifications(store.state);
+  haptic("medium");
+  closeComposer();
+  say("Got it" + (who() ? ", " + who() : "") + ". " + r.text + " \u2014 " + whenWord(r, new Date()) + ".");
+  render();
+}
+
 /* ----------------------------------------------------------------- boot */
 
 (async function boot() {
@@ -346,6 +445,13 @@ async function addOne(line) {
       $("listBox").value = "";
       await absorb(v);
     });
+
+    $("remindBtn").addEventListener("click", () => openComposer($("addBox").value.trim()));
+    $("remCancel").addEventListener("click", closeComposer);
+    $("remSave").addEventListener("click", saveComposer);
+    $("remDate").addEventListener("change", () => { pickDate = $("remDate").value; paintChips(); });
+    $("remTime").addEventListener("change", () => { pickTime = $("remTime").value || null; paintChips(); });
+    $("remText").addEventListener("keydown", e => { if (e.key === "Enter") saveComposer(); });
 
     $("addBtn").addEventListener("click", async () => {
       await addOne($("addBox").value);

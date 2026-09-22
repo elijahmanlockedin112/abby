@@ -216,7 +216,15 @@ export async function readImage(blob, ai) {
     const text = await ai.askVision(
       "Transcribe every piece of text visible in this image, in reading order. " +
       "Keep list structure and line breaks. Do not summarize, do not add commentary, " +
-      "do not describe the image. If there is no text, reply with exactly: (no text)",
+      "do not describe the image.\n\n" +
+      "IMPORTANT — this is often a handwritten list where finished items are " +
+      "marked off. Prefix a line with [DONE] if it is struck through, scribbled " +
+      "over, crossed out, highlighted out, has a tick or check beside it, has a " +
+      "filled or ticked checkbox, or is otherwise visibly marked as finished. " +
+      "Still transcribe the words; just prefix the line. When you are unsure " +
+      "whether a mark means finished, prefix it — a missed item is easy to add " +
+      "back, a re-added finished one is annoying.\n\n" +
+      "If there is no text, reply with exactly: (no text)",
       { data: b64, mediaType: blob.type || "image/png" },
       { maxTokens: 2000 }
     );

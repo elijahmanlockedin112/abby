@@ -27,7 +27,8 @@ HARD RULES:
 - Do not split one line into two items, and do not merge two lines into one.
 - "minutes": your estimate of focused work, integer 5-180, or null.
 - "due"/"date": "YYYY-MM-DD" only if the line names a day or date. Otherwise null. Never guess a date.
-- Skip headings, dates written as titles, page numbers, and anything already crossed out.
+- Skip headings, dates written as titles, and page numbers.
+- SKIP ANYTHING ALREADY DONE. On a paper list that means: a line prefixed [DONE], struck through, scribbled over, crossed out, highlighted out, ticked, checked, or marked in any way that reads as finished. Leave it out entirely — do not list it as a task or a reminder. If you're unsure whether a mark means finished, leave it out.
 
 Reply with only JSON:
 {"tasks":[{"title":string,"minutes":number|null,"due":string|null,"quote":string}],
@@ -36,9 +37,45 @@ Reply with only JSON:
 TEXT:
 `;
 
+/**
+ * Is this line already done?
+ *
+ * On paper you cross things off, so a crossed-off line must never come
+ * back as a task. The vision pass prefixes those with [DONE]; this also
+ * catches the typed equivalents. Deliberately generous — re-adding
+ * something you already finished is worse than missing it, because you
+ * can always add it back.
+ */
+export function isCrossedOff(line) {
+  const s = String(line || "");
+  if (/^\s*\[done\]/i.test(s)) return true;                 // from the vision pass
+  if (/^\s*~~[\s\S]+~~\s*$/.test(s)) return true;           // ~~strikethrough~~
+  if (/^\s*\[\s*[xX✓✔]\s*\]/.test(s)) return true;          // [x] checkbox
+  if (/^\s*[✓✔✗✘☑☒×]\s+/.test(s)) return true;              // leading tick or cross
+  if (/^\s*[xX]\s+\S/.test(s) && !/^\s*x-?ray/i.test(s)) return true;
+  // Combining strikethrough/overlay applied across the characters.
+  if (/[̵̶̷̸]/.test(s)) return true;
+  return false;
+}
+
+/** Strip the marker so the words are clean if it's kept for any reason. */
+function unmark(line) {
+  return String(line)
+    .replace(/^\s*\[done\]\s*/i, "")
+    .replace(/^\s*~~([\s\S]+)~~\s*$/, "$1")
+    .trim();
+}
+
 /** The no-key path: rules only, and it still sorts. */
 export function triageLocally(text, defaultEst = 30, now = new Date()) {
-  const cands = extractDeterministic({ text }, now);
+  // Drop finished lines before anything else looks at them — stripBullet
+  // would otherwise turn "[x] math pset" into a live task.
+  const live = String(text || "")
+    .split(/\r?\n/)
+    .filter(l => !isCrossedOff(l))
+    .join("\n");
+
+  const cands = extractDeterministic({ text: live }, now);
   const tasks = [], reminders = [];
 
   for (const c of cands) {
@@ -101,12 +138,20 @@ export async function triage(text, ai, defaultEst = 30, now = new Date()) {
 
     const tOk = verifyCandidates(tProp, body);
     const rOk = verifyCandidates(rProp, body);
-    const dropped = tOk.dropped.length + rOk.dropped.length;
+
+    // Belt and braces: even if the model lists a finished line, drop it.
+    const liveOnly = kept => kept.filter(x => !isCrossedOff(x.quote) && !isCrossedOff(x.title));
+    const tLive = liveOnly(tOk.kept);
+    const rLive = liveOnly(rOk.kept);
+    const dropped = tOk.dropped.length + rOk.dropped.length +
+      (tOk.kept.length - tLive.length) + (rOk.kept.length - rLive.length);
+    tOk.kept = tLive;
+    rOk.kept = rLive;
 
     const tasks = tOk.kept.map((x, i) => {
       const mins = Number(x.raw.minutes);
       const due = typeof x.raw.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.raw.due) ? x.raw.due : null;
-      const t = taskFrom(x.title, mins >= 5 && mins <= 180 ? Math.round(mins) : defaultEst, due, x.quote, now);
+      const t = taskFrom(unmark(x.title), mins >= 5 && mins <= 180 ? Math.round(mins) : defaultEst, due, x.quote, now);
       t.estGuessed = !(mins >= 5 && mins <= 180);
       t.ord = i;
       return t;
