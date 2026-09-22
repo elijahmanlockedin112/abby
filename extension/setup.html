@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Set up Locked In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+</head>
+<body class="surface-setup">
+
+<div class="nowbar">
+  <div class="brand"><span class="dot"></span>Locked In</div>
+  <span class="spacer"></span>
+  <button class="sm ghost" id="themeBtn">Theme</button>
+  <button class="sm ghost" id="skipAll">Skip setup</button>
+</div>
+
+<div class="wiz">
+  <div class="wizdots" id="dots"></div>
+
+  <!-- 1 ------------------------------------------------------------- -->
+  <section class="step" id="s1">
+    <p class="k">Step 1 of 5</p>
+    <h2>When does your evening start and end?</h2>
+    <p class="lede">
+      Everything is measured against these two numbers. The plan runs from the moment you
+      sit down to the moment you've said you're going to bed — and it never plans past it.
+    </p>
+
+    <div class="field">
+      <label class="fld" for="nameBox">What should it call you</label>
+      <input type="text" id="nameBox" placeholder="Elijah" autocomplete="off">
+      <p class="hint">Optional. Used once, in the welcome-home line.</p>
+    </div>
+
+    <div class="fldrow">
+      <div class="field">
+        <label class="fld" for="arriveHour">You're usually home after</label>
+        <select id="arriveHour"></select>
+        <p class="hint">The first time you touch the browser after this, the briefing arms itself. Once a day, never twice.</p>
+      </div>
+      <div class="field">
+        <label class="fld" for="bedBox">Bedtime</label>
+        <input type="time" id="bedBox" value="22:00">
+        <p class="hint">The hard edge. Work that doesn't fit before this gets named, not squeezed.</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="fld" for="estBox">Default estimate for an unmarked task</label>
+      <input type="number" id="estBox" min="5" max="180" step="5" value="30">
+    </div>
+
+    <div class="field" style="margin-top:22px;border-top:1px solid var(--line);padding-top:18px">
+      <p class="fld">Where it lives</p>
+      <div class="check">
+        <input type="checkbox" id="pinTab" checked>
+        <label for="pinTab">
+          <b>Keep one pinned tab.</b> A single favicon at the far left of your tab strip, there every
+          time you open Chrome. <code class="k">Ctrl+Shift+L</code> jumps to it from anywhere.
+        </label>
+      </div>
+      <p class="hint">
+        It does <b>not</b> take over your new tab page. New tabs stay new tabs. Close the pinned tab
+        whenever you want — it comes back on the next browser start, and you can turn that off here
+        or in Options.
+      </p>
+    </div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------- -->
+  <section class="step" id="s2" hidden>
+    <p class="k">Step 2 of 5</p>
+    <h2>The thinking</h2>
+    <p class="lede">
+      This is the part that reads your screenshots, pulls tasks out of messy assignment pages,
+      turns what you said out loud into a list, and answers the open-ended questions.
+    </p>
+
+    <div class="pick" id="provPick">
+      <label id="provOpenaiL">
+        <input type="radio" name="prov" id="provOpenai" value="openai" checked>
+        <span class="pt">OpenAI</span>
+        <span class="ps">GPT-5.1. Key from platform.openai.com</span>
+      </label>
+      <label id="provAnthropicL">
+        <input type="radio" name="prov" id="provAnthropic" value="anthropic">
+        <span class="pt">Anthropic</span>
+        <span class="ps">Claude. Key from console.anthropic.com</span>
+      </label>
+    </div>
+
+    <div class="field" style="margin-top:14px">
+      <label class="fld" for="apiKey">API key</label>
+      <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="sk-proj-…">
+      <p class="hint">
+        Stored in this browser only. It is <b>never</b> written to the sync database, so it doesn't
+        travel to your phone. Calls go straight from here to the provider, billed to your own account.
+      </p>
+    </div>
+
+    <div class="field">
+      <label class="fld" for="model">Model</label>
+      <input type="text" id="model" spellcheck="false" placeholder="gpt-5.1">
+      <p class="hint">
+        If the id is wrong, <b>Test</b> says so immediately and you can change it — nothing else in the app breaks.
+      </p>
+    </div>
+
+    <div class="btnrow">
+      <button class="sm" id="testKey">Test it</button>
+    </div>
+    <div class="result" id="keyResult" hidden></div>
+
+    <p class="hint" style="margin-top:16px">
+      <b>You can skip this entirely.</b> Without a key you still get the whole scheduler, the deadline
+      ordering, Future Me pace tracking, voice-to-list, PDF and text capture, and seven lookup questions.
+      You lose screenshot reading and open-ended questions.
+    </p>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------- -->
+  <section class="step" id="s3" hidden>
+    <p class="k">Step 3 of 5</p>
+    <h2>Say your list instead of typing it</h2>
+    <p class="lede">
+      Talk normally — "biology chapter four review thirty five minutes, then FFA quiz prep forty five
+      minutes, then finish the github project" — and it comes out as separate lines with the times
+      already filled in.
+    </p>
+
+    <div class="voicebox" id="vbox">
+      <p class="vtranscript" id="vtext"></p>
+      <div class="btnrow" style="margin-top:0">
+        <button class="go" id="micBtn">Try the microphone</button>
+        <button class="ghost sm" id="micClear" hidden>Clear</button>
+      </div>
+    </div>
+    <div class="result" id="micResult" hidden></div>
+    <ul class="vlines" id="vlines"></ul>
+
+    <p class="hint" style="margin-top:14px">
+      The transcription happens in the browser — no audio is uploaded. If you set a key on the last
+      step, it also gets a shot at splitting the lines better, and anything it returns that doesn't
+      quote what you actually said gets thrown out.
+    </p>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------- -->
+  <section class="step" id="s4" hidden>
+    <p class="k">Step 4 of 5 · optional</p>
+    <h2>Your calendar</h2>
+    <p class="lede">
+      Calendar does exactly two things here: it takes time away from the evening, and it flags a
+      deadline when an event name matches something on your list. It never creates work.
+    </p>
+
+    <div class="field">
+      <label class="fld" for="icsUrl">Secret iCal address</label>
+      <input type="url" id="icsUrl" spellcheck="false" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+      <p class="hint">
+        Google Calendar → hover your calendar → <b>⋮</b> → <b>Settings and sharing</b> →
+        <b>Integrate calendar</b> → <b>Secret address in iCal format</b>. Read-only, no sign-in,
+        works on your phone too. Anyone with the link can read your calendar, so keep it to yourself.
+      </p>
+    </div>
+
+    <div class="btnrow"><button class="sm" id="testCal">Test the feed</button></div>
+    <div class="result" id="calResult" hidden></div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------- -->
+  <section class="step" id="s5" hidden>
+    <p class="k">Step 5 of 5 · optional</p>
+    <h2>Your phone</h2>
+    <p class="lede">
+      This is the bit that makes the 3:00 dump land on your PC. Both devices read and write one
+      record; whichever was saved last wins.
+    </p>
+
+    <div class="field">
+      <label class="fld" for="cloudUrl">Realtime Database URL</label>
+      <input type="url" id="cloudUrl" spellcheck="false" placeholder="https://your-project-default-rtdb.firebaseio.com">
+      <p class="hint">
+        console.firebase.google.com → <b>Add project</b> (the free plan is plenty) →
+        <b>Build → Realtime Database → Create Database</b> → start in <b>test mode</b> → copy the URL at the top.
+      </p>
+    </div>
+
+    <div class="field">
+      <label class="fld" for="cloudKey">Shared key</label>
+      <div class="keyrow" style="display:flex;gap:8px">
+        <input type="text" id="cloudKey" spellcheck="false" placeholder="press Generate">
+        <button class="sm" id="genKey">Generate</button>
+      </div>
+      <p class="hint">
+        In test mode this key <b>is</b> the password — anyone who knows the exact path can read the record.
+        Use the generated one and don't post it anywhere.
+      </p>
+    </div>
+
+    <div class="btnrow"><button class="sm" id="testCloud">Test the connection</button></div>
+    <div class="result" id="cloudResult" hidden></div>
+
+    <div class="field" style="margin-top:20px">
+      <p class="fld">Put these two on your phone</p>
+      <div class="copyrow"><code id="echoUrl">—</code><button class="sm ghost" id="copyUrl">Copy</button></div>
+      <div class="copyrow"><code id="echoKey">—</code><button class="sm ghost" id="copyKey">Copy</button></div>
+      <p class="hint">Open the phone app → <b>Setup</b> → paste both → Save.</p>
+    </div>
+  </section>
+
+  <!-- done ---------------------------------------------------------- -->
+  <section class="step" id="sDone" hidden>
+    <p class="k">Ready</p>
+    <h2 id="doneHead">You're set.</h2>
+    <p class="lede" id="doneSummary"></p>
+    <div class="btnrow" style="margin-top:0">
+      <button class="go" id="goNow">Open tonight's plan</button>
+      <button class="ghost" id="goFull">Open the full briefing</button>
+    </div>
+  </section>
+
+  <div class="navrow" id="nav">
+    <button class="ghost" id="back" hidden>Back</button>
+    <span class="spacer"></span>
+    <button class="ghost sm" id="skipStep" hidden>Skip this</button>
+    <button class="go" id="next">Next</button>
+  </div>
+</div>
+
+<script type="module" src="setup.js"></script>
+</body>
+</html>

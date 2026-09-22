@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locked In</title>
+<meta name="description" content="Throw it in from your phone; your PC knows what you should be doing when you sit down.">
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#EEF0F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#13151C" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Locked In">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/icon180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+</head>
+<body class="surface-pwa">
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span>Locked In</div>
+    <span class="chip" id="syncChip" hidden></span>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">--:--</span>
+    <button class="sm ghost" id="themeBtn">Theme</button>
+  </div>
+</div>
+
+<div class="wrap" style="padding-block:14px 0">
+
+  <div class="tabs" role="tablist">
+    <button id="tabNow" role="tab" aria-selected="true">Now</button>
+    <button id="tabCapture" role="tab" aria-selected="false">Capture <span class="chip" id="inboxCount" hidden></span></button>
+    <button id="tabPlan" role="tab" aria-selected="false">Plan</button>
+    <button id="tabSetup" role="tab" aria-selected="false">Setup</button>
+  </div>
+
+  <!-- ========================================================== NOW -->
+  <section id="viewNow" role="tabpanel">
+    <div id="remAlert" hidden></div>
+    <div style="padding:8px 0 18px">
+      <p class="eyebrow" id="eyebrow">Right now</p>
+      <h1 class="nowtask" id="nowTask" style="font-size:clamp(28px,8vw,40px)">&nbsp;</h1>
+      <p class="nowdur" id="nowDur"></p>
+      <p class="nowwhy" id="nowWhy"></p>
+
+      <div class="nowthen" id="nowThen" hidden style="margin-top:26px;padding-top:16px">
+        <dl>
+          <div><p class="lbl">Then</p><p class="val" id="then1"></p></div>
+          <div id="then2wrap"><p class="lbl">After that</p><p class="val" id="then2"></p></div>
+        </dl>
+      </div>
+
+      <div class="nowfoot" style="margin-top:26px;padding-top:16px">
+        <div class="nowleft" id="nowLeft" style="font-size:24px">—<small>remaining</small></div>
+      </div>
+    </div>
+
+    <div class="panel askwrap">
+      <h3>Ask</h3>
+      <div class="askrow">
+        <input type="text" id="askBox" placeholder="What did I leave unfinished yesterday?">
+        <button class="go" id="askBtn">Ask</button>
+      </div>
+      <div class="chips" id="askChips"></div>
+      <div class="answer" id="askOut" hidden></div>
+    </div>
+  </section>
+
+  <!-- ====================================================== CAPTURE -->
+  <section id="viewCapture" role="tabpanel" hidden>
+    <div class="panel">
+      <h3>Say tonight's list</h3>
+      <p class="sub">Walking out of class, just talk. It splits into lines with the times filled in — you check them, then send.</p>
+      <div class="voicebox" id="vbox">
+        <p class="vtranscript" id="vtext"></p>
+        <div class="btnrow" style="margin-top:0">
+          <button class="go wide" id="micBtn" data-label="Speak your list">Speak your list</button>
+        </div>
+        <div class="btnrow"><button class="ghost sm" id="micClear" hidden>Clear</button></div>
+      </div>
+      <div class="result" id="micResult" hidden></div>
+      <ul class="vlines" id="vlines"></ul>
+    </div>
+
+    <div class="panel">
+      <h3>Or type it</h3>
+      <p class="sub">One task per line. This is the whole list — your PC orders it and never adds to it.</p>
+      <textarea id="listBox" spellcheck="false" placeholder="Biology ch 4 review — test Thursday (35m)&#10;FFA quiz prep 45m&#10;Finish GitHub project 1h&#10;Math pset"></textarea>
+      <p class="sub" style="margin:8px 0 0">
+        Optional: <code class="k">35m</code> / <code class="k">1h</code> sets the estimate,
+        <code class="k">due Fri</code> / <code class="k">test Thursday</code> / <code class="k">9/25</code> sets a deadline.
+      </p>
+      <div class="btnrow"><button class="go wide" id="sendBtn">Send to tonight</button></div>
+      <p class="msg" id="sendMsg" style="margin-top:10px" hidden></p>
+    </div>
+
+    <div class="panel">
+      <h3>Remind me</h3>
+      <p class="sub">Dated things, not evening work. “cancel spotify subscription on November 30”.</p>
+      <input type="text" id="remBox" placeholder="cancel spotify subscription on November 30">
+      <div class="btnrow"><button class="sm go wide" id="remBtn">Set reminder</button></div>
+      <p class="msg" id="remMsg" style="margin-top:9px" hidden></p>
+      <div style="margin-top:14px" id="remList"></div>
+      <p class="notifstate" id="notifState"></p>
+      <div class="btnrow"><button class="sm" id="notifBtn" hidden>Turn on notifications</button></div>
+    </div>
+
+    <div class="panel">
+      <h3>Throw something in</h3>
+      <p class="sub">A photo of the board, an assignment PDF, a thought on the bus. It becomes candidates you accept — never a task on its own.</p>
+
+      <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+      <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md" multiple hidden>
+
+      <div class="btnrow" style="margin-top:0">
+        <button class="go wide" id="camBtn">Take a photo</button>
+      </div>
+      <div class="btnrow">
+        <button class="sm" id="pickBtn">Choose a file</button>
+      </div>
+
+      <label class="fld" for="noteBox" style="margin-top:14px">Or just type it</label>
+      <textarea id="noteBox" spellcheck="false" style="min-height:88px" placeholder="Paste an assignment page, or dictate with the mic on your keyboard…"></textarea>
+      <div class="btnrow"><button class="sm wide" id="noteBtn">Capture</button></div>
+      <p class="msg" id="capMsg" style="margin-top:10px" hidden></p>
+    </div>
+
+    <div class="panel">
+      <h3>Inbox</h3>
+      <p class="sub">Accept what's real. Dismiss the rest. Nothing here is on your list yet.</p>
+      <div id="inboxList"></div>
+    </div>
+
+    <div class="panel">
+      <h3>What's committed</h3>
+      <div class="ledger" id="ledger"></div>
+      <ul class="srclist" id="srclist"></ul>
+      <div class="btnrow">
+        <button class="sm ghost" id="pullBtn">Pull latest</button>
+        <button class="sm ghost" id="loadBtn">Load into the box</button>
+      </div>
+      <label class="fld" for="addBox" style="margin-top:14px">Add one thing</label>
+      <input type="text" id="addBox" placeholder="Doesn't replace the list — appends">
+      <div class="btnrow"><button class="sm wide" id="addBtn">Add &amp; replan</button></div>
+    </div>
+  </section>
+
+  <!-- ========================================================= PLAN -->
+  <section id="viewPlan" role="tabpanel" hidden>
+    <section class="brief" style="padding-block:4px 14px">
+      <h1 id="hdr">You're Home <span class="t" id="hdrTime"></span></h1>
+      <p class="say" id="say"></p>
+      <div class="runway">
+        <div class="rail" id="rail"></div>
+        <div class="ends"><span id="railStart"></span><span id="railEnd"></span></div>
+      </div>
+    </section>
+
+    <div class="sechead"><h2>Tonight, in order</h2><span class="note" id="planNote"></span></div>
+    <div class="blocks" id="blocks"></div>
+    <div id="spill"></div>
+
+    <div class="sechead" style="margin-top:26px"><h2>Future Me</h2></div>
+    <div id="goalList"></div>
+    <div class="panel" style="margin-top:12px">
+      <h3>Set a target</h3>
+      <label class="fld" for="gTitle">What</label>
+      <input type="text" id="gTitle" placeholder="Finish FFA prep">
+      <div class="fldrow" style="margin-top:11px">
+        <div>
+          <label class="fld" for="gDate">By</label>
+          <input type="date" id="gDate" style="font-family:var(--f-display);font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:7px;padding:9px 10px;width:100%">
+        </div>
+        <div>
+          <label class="fld" for="gHours">Hours</label>
+          <input type="number" id="gHours" min="0.5" max="200" step="0.5" value="6">
+        </div>
+      </div>
+      <div class="btnrow"><button class="sm wide" id="gAdd">Add goal</button></div>
+    </div>
+
+    <div class="rules">
+      <h2>How the order is decided</h2>
+      <ol id="rulesList"></ol>
+    </div>
+  </section>
+
+  <!-- ======================================================== SETUP -->
+  <section id="viewSetup" role="tabpanel" hidden>
+    <div class="panel">
+      <h3>Tonight</h3>
+      <div class="fldrow">
+        <div>
+          <label class="fld" for="bedBox">Bedtime</label>
+          <input type="time" id="bedBox" value="22:00">
+        </div>
+        <div>
+          <label class="fld" for="estBox">Default estimate</label>
+          <input type="number" id="estBox" min="5" max="180" step="5" value="30">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Sync with your PC</h3>
+      <p class="sub">The same two values you put in the Chrome extension's options. Without them this phone keeps its own copy and nothing crosses over.</p>
+      <label class="fld" for="cloudUrl">Database URL</label>
+      <input type="url" id="cloudUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://your-project-default-rtdb.firebaseio.com">
+      <label class="fld" for="cloudKey" style="margin-top:11px">Shared key</label>
+      <input type="text" id="cloudKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="the same key as the extension">
+      <div class="btnrow">
+        <button class="sm" id="saveCfg">Save</button>
+        <button class="sm ghost" id="testCloud">Test</button>
+      </div>
+      <p class="msg" id="cfgMsg" style="margin-top:9px"></p>
+    </div>
+
+    <div class="panel">
+      <h3>The thinking</h3>
+      <p class="sub">Optional. Needed to read photos and screenshots — there's no OCR on the phone. Stored on this phone only; it is never synced, so add it here separately from your PC.</p>
+      <div class="pick">
+        <label id="provOpenaiL">
+          <input type="radio" name="prov" id="provOpenai" value="openai" checked>
+          <span class="pt">OpenAI</span><span class="ps">GPT-5.1</span>
+        </label>
+        <label id="provAnthropicL">
+          <input type="radio" name="prov" id="provAnthropic" value="anthropic">
+          <span class="pt">Anthropic</span><span class="ps">Claude</span>
+        </label>
+      </div>
+      <label class="fld" for="apiKey" style="margin-top:12px">API key</label>
+      <input type="password" id="apiKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-proj-…">
+      <label class="fld" for="model" style="margin-top:11px">Model</label>
+      <input type="text" id="model" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="gpt-5.1">
+      <div class="btnrow">
+        <button class="sm" id="saveKey">Save</button>
+        <button class="sm ghost" id="testKey">Test</button>
+      </div>
+      <p class="msg" id="keyMsg" style="margin-top:9px"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Calendar feed</h3>
+      <p class="sub">Optional. The secret .ics address from Calendar settings — it carves blocked time out of the evening.</p>
+      <label class="fld" for="icsUrl">Secret .ics address</label>
+      <input type="url" id="icsUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+      <div class="btnrow"><button class="sm" id="saveIcs">Save</button></div>
+    </div>
+
+    <div class="panel">
+      <h3>Put it on your Home Screen</h3>
+      <p class="sub">
+        Safari → the Share button → <b>Add to Home Screen</b>. It opens full screen with no browser bar,
+        works with no signal, and sits one tap from your lock screen — which is the point, since you're
+        doing this at 3:00 walking out of class.
+      </p>
+    </div>
+  </section>
+</div>
+
+<div class="stickybar" id="stickybar" hidden>
+  <button class="go" id="stickyPrimary">Send to tonight</button>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

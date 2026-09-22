@@ -1,0 +1,26 @@
+{
+  "name": "abby",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Abby — she knows what you're supposed to be doing right now.",
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "test": "node test/engine.test.mjs && node test/crypto.test.mjs && node test/map.test.mjs && node test/fire.test.mjs",
+    "build:ios": "node tools/build-ios.mjs",
+    "sync:ios": "npm run build:ios && cap sync ios",
+    "open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/haptics": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/local-notifications": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

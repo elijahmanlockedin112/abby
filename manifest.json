@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Locked In",
+  "version": "1.0.0",
+  "description": "When you get home, your new tab tells you what to do first — from the to-do list you uploaded, and nothing else.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "idle",
+    "tabs",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://calendar.google.com/*",
+    "https://*.firebaseio.com/*",
+    "https://*.firebasedatabase.app/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.github.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "extension/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "extension/popup.html",
+    "default_title": "Locked In",
+    "default_icon": {
+      "16": "extension/icons/icon16.png",
+      "32": "extension/icons/icon32.png",
+      "48": "extension/icons/icon48.png",
+      "128": "extension/icons/icon128.png"
+    }
+  },
+  "options_page": "extension/options.html",
+  "commands": {
+    "open-locked-in": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Jump to the Locked In tab"
+    }
+  },
+  "icons": {
+    "16": "extension/icons/icon16.png",
+    "32": "extension/icons/icon32.png",
+    "48": "extension/icons/icon48.png",
+    "128": "extension/icons/icon128.png"
+  }
+}

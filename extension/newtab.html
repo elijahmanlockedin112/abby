@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locked In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+</head>
+<body class="surface-newtab">
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span>Locked In</div>
+    <span class="chip" id="srcChip">no list yet</span>
+    <span class="chip" id="syncChip" hidden></span>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">--:--</span>
+    <button class="sm ghost" id="nowBtn">Right now</button>
+    <button class="sm ghost" id="themeBtn">Theme</button>
+    <button class="sm ghost" id="optBtn">Options</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div id="homeBanner" class="banner home" hidden>
+    <span id="homeTxt"></span><span class="spacer"></span>
+    <button class="sm" id="homeAck">Got it</button>
+  </div>
+
+  <div id="staleBanner" class="banner" hidden>
+    <span id="staleTxt"></span><span class="spacer"></span>
+    <button class="sm" id="staleNew">Start a new evening</button>
+  </div>
+
+  <div id="remAlert" hidden></div>
+
+  <section class="brief">
+    <h1 id="hdr">You're Home <span class="t" id="hdrTime"></span></h1>
+    <p class="say" id="say"></p>
+
+    <div class="runway">
+      <div class="rail" id="rail"></div>
+      <div class="ends"><span id="railStart"></span><span id="railEnd"></span></div>
+      <div class="legend">
+        <span><i class="lg-task"></i>planned work</span>
+        <span><i class="lg-busy"></i>calendar — time you don't have</span>
+        <span><i class="lg-free"></i>free</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== ASK -->
+  <div class="panel askwrap" style="margin-top:20px">
+    <h3>Ask</h3>
+    <p class="sub">The everyday questions are looked up, not generated — so they can't be wrong. Anything else needs an API key.</p>
+    <div class="askrow">
+      <input type="text" id="askBox" placeholder="What am I supposed to be doing right now?">
+      <button class="go" id="askBtn">Ask</button>
+    </div>
+    <div class="chips" id="askChips"></div>
+    <div class="answer" id="askOut" hidden></div>
+  </div>
+
+  <!-- ======================================================== TABS -->
+  <div class="tabs" role="tablist" style="margin-top:24px">
+    <button id="tabTonight" role="tab" aria-selected="true">Tonight</button>
+    <button id="tabInbox" role="tab" aria-selected="false">Inbox <span class="chip" id="inboxCount" hidden></span></button>
+    <button id="tabGoals" role="tab" aria-selected="false">Goals</button>
+    <button id="tabMap" role="tab" aria-selected="false">Map</button>
+  </div>
+
+  <!-- ===================================================== TONIGHT -->
+  <section id="viewTonight" role="tabpanel">
+    <div class="cols" style="margin-top:6px">
+      <section>
+        <div class="sechead">
+          <h2>Tonight, in order</h2>
+          <span class="note" id="planNote"></span>
+        </div>
+        <div class="blocks" id="blocks"></div>
+        <div id="spill"></div>
+
+        <div class="rules">
+          <h2>How the order is decided</h2>
+          <ol id="rulesList"></ol>
+        </div>
+      </section>
+
+      <aside>
+        <div class="panel">
+          <h3>Say tonight's list</h3>
+          <p class="sub">Talk normally. It comes out as separate lines with the times filled in, and you check them before they count.</p>
+          <div class="voicebox" id="vbox">
+            <p class="vtranscript" id="vtext"></p>
+            <div class="btnrow" style="margin-top:0">
+              <button class="go" id="micBtn" data-label="Speak your list">Speak your list</button>
+              <button class="ghost sm" id="micClear" hidden>Clear</button>
+            </div>
+          </div>
+          <div class="result" id="micResult" hidden></div>
+          <ul class="vlines" id="vlines"></ul>
+        </div>
+
+        <div class="panel">
+          <h3>The list you committed to</h3>
+          <p class="sub">The source of truth. Everything below came from your phone, your typing, or a candidate you accepted.</p>
+          <div class="ledger" id="ledger"></div>
+          <ul class="srclist" id="srclist"></ul>
+          <div class="btnrow">
+            <button class="sm" id="editBtn">Paste / edit list</button>
+            <button class="sm ghost" id="pullBtn" hidden>Pull from phone</button>
+          </div>
+
+          <div id="editor" hidden style="margin-top:12px">
+            <label class="fld" for="listBox">One task per line</label>
+            <textarea id="listBox" spellcheck="false" placeholder="Biology ch 4 review — test Thursday (35m)&#10;FFA quiz prep 45m&#10;Finish GitHub project 1h&#10;Math pset"></textarea>
+            <p class="sub" style="margin:7px 0 0">
+              Optional: <code class="k">35m</code> / <code class="k">1h</code> sets the estimate,
+              <code class="k">due Fri</code> / <code class="k">test Thursday</code> / <code class="k">9/25</code> sets a deadline.
+            </p>
+            <div class="btnrow">
+              <button class="go" id="saveList">Save as tonight's list</button>
+              <button class="ghost" id="cancelList">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Remind me</h3>
+          <p class="sub">Dated things, not evening work. “cancel spotify subscription on November 30” — and on November 30, Chrome tells you.</p>
+          <input type="text" id="remBox" placeholder="cancel spotify subscription on November 30">
+          <div class="btnrow"><button class="sm go" id="remBtn">Set reminder</button></div>
+          <p class="msg" id="remMsg" style="margin-top:9px" hidden></p>
+          <div style="margin-top:14px" id="remList"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Add to tonight</h3>
+          <input type="text" id="addBox" placeholder="Oh crap — I need to finish this tonight">
+          <div class="btnrow"><button class="sm" id="addBtn">Add &amp; replan</button></div>
+        </div>
+
+        <div class="panel">
+          <h3>Calendar</h3>
+          <p class="sub">Reminders and blocked time only. Your list decides what the work is.</p>
+          <div id="calBody"><p class="msg">Not loaded yet.</p></div>
+          <div class="btnrow"><button class="sm" id="calBtn">Refresh feed</button></div>
+        </div>
+
+        <div class="panel">
+          <h3>Tonight's settings</h3>
+          <div class="fldrow">
+            <div>
+              <label class="fld" for="bedBox">Bedtime</label>
+              <input type="time" id="bedBox" value="22:00">
+            </div>
+            <div>
+              <label class="fld" for="estBox">Default estimate</label>
+              <input type="number" id="estBox" min="5" max="180" step="5" value="30">
+            </div>
+          </div>
+          <p class="sub" style="margin:10px 0 0" id="syncMsg"></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ======================================================= INBOX -->
+  <section id="viewInbox" role="tabpanel" hidden>
+    <div class="cols" style="margin-top:6px">
+      <section>
+        <div class="sechead">
+          <h2>Captured</h2>
+          <span class="note">candidates, not tasks — each one quotes where it came from</span>
+        </div>
+        <div id="inboxList"></div>
+      </section>
+
+      <aside>
+        <div class="panel">
+          <h3>Throw something in</h3>
+          <p class="sub">A screenshot of the whiteboard, an assignment PDF, a half-thought at 9pm. No folders, no tags.</p>
+          <textarea id="noteBox" spellcheck="false" placeholder="Paste anything — an assignment page, a syllabus chunk, notes to yourself…" style="min-height:96px"></textarea>
+          <div class="btnrow">
+            <button class="sm go" id="noteBtn">Capture note</button>
+          </div>
+          <p class="sub" style="margin-top:8px">To speak a whole list instead, use <b>Say tonight's list</b> on the Tonight tab.</p>
+
+          <div style="margin-top:14px">
+            <label class="fld" for="fileInput">Screenshot, PDF or text file</label>
+            <input type="file" id="fileInput" multiple accept="image/*,.pdf,.txt,.md,.csv" style="font-size:13px">
+            <p class="sub" style="margin-top:6px">You can also drag files anywhere on this page, or paste a screenshot with <code class="k">Ctrl+V</code>.</p>
+          </div>
+          <p class="msg" id="capMsg" style="margin-top:10px" hidden></p>
+        </div>
+
+        <div class="panel">
+          <h3>Pull from your sources</h3>
+          <p class="sub">Same rule: these produce candidates that quote the real activity line.</p>
+          <div class="btnrow">
+            <button class="sm" id="ghBtn">GitHub activity</button>
+            <button class="sm" id="tabsBtn">Open tabs</button>
+          </div>
+          <p class="msg" id="srcMsg" style="margin-top:9px" hidden></p>
+        </div>
+
+        <div class="panel">
+          <h3>Reading screenshots</h3>
+          <p class="sub" id="aiState"></p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ======================================================= GOALS -->
+  <section id="viewGoals" role="tabpanel" hidden>
+    <div class="cols" style="margin-top:6px">
+      <section>
+        <div class="sechead">
+          <h2>Future Me</h2>
+          <span class="note">pace measured against the evenings you actually have</span>
+        </div>
+        <div id="goalList"></div>
+      </section>
+
+      <aside>
+        <div class="panel">
+          <h3>Set a target</h3>
+          <p class="sub">Say what you want done and by when. Minutes are counted from sessions you actually finish, and the pace is recomputed against your real calendar.</p>
+          <label class="fld" for="gTitle">What</label>
+          <input type="text" id="gTitle" placeholder="Finish FFA prep">
+          <div class="fldrow" style="margin-top:11px">
+            <div>
+              <label class="fld" for="gDate">By</label>
+              <input type="date" id="gDate" style="font-family:var(--f-display);font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:7px;padding:9px 10px;width:100%">
+            </div>
+            <div>
+              <label class="fld" for="gHours">Roughly how many hours</label>
+              <input type="number" id="gHours" min="0.5" max="200" step="0.5" value="6">
+            </div>
+          </div>
+          <label class="fld" for="gMatch" style="margin-top:11px">Count sessions containing</label>
+          <input type="text" id="gMatch" placeholder="ffa">
+          <p class="sub" style="margin-top:6px">Any finished task whose name contains this word counts toward the goal. Leave it blank to guess from the title.</p>
+          <div class="btnrow"><button class="go" id="gAdd">Add goal</button></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========================================================= MAP -->
+  <section id="viewMap" role="tabpanel" hidden>
+    <div class="sechead" style="margin-top:6px">
+      <h2>Context map</h2>
+      <span class="note">built from your own words — click anything to see the line that put it there</span>
+    </div>
+
+    <div class="mapwrap">
+      <div>
+        <div class="mapcanvas">
+          <canvas id="mapCanvas"></canvas>
+          <div class="maptools">
+            <button class="sm ghost" id="mapRecenter">Recenter</button>
+            <button class="sm ghost" id="mapRescan">Rescan everything</button>
+            <button class="sm ghost" id="mapDeepen" hidden>Deepen with AI</button>
+          </div>
+          <div class="mapstat" id="mapStat"></div>
+          <div class="empty" id="mapEmpty" hidden>
+            <b>Nothing mapped yet</b>
+            <span>The map grows from what you already write — tasks, reminders, screenshots, what you say out loud. Hit <b>Rescan everything</b> to fold in what's already here.</span>
+          </div>
+        </div>
+        <div class="maplegend" id="mapLegend"></div>
+        <p class="msg" id="mapMsg" style="margin-top:10px" hidden></p>
+      </div>
+
+      <aside class="mapside">
+        <div class="panel" style="margin-bottom:12px">
+          <label class="fld" for="mapSearch">Find</label>
+          <input type="text" id="mapSearch" placeholder="Mr. Harmon, Biology, FFA…">
+        </div>
+        <div id="mapSide"></div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="newtab.js"></script>
+</body>
+</html>

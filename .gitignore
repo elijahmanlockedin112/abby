@@ -1,0 +1,17 @@
+node_modules/
+dist/
+out/
+
+# Capacitor regenerates these; the Xcode project itself is committed.
+ios/App/App/public/
+ios/App/Pods/
+ios/App/build/
+ios/App/Podfile.lock
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+
+.DS_Store
+Thumbs.db
+*.log
+*.p12
+*.mobileprovision

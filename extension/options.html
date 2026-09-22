@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locked In — Options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+<style>
+  .wrap{max-width:640px}
+  .panel{margin-bottom:18px}
+  .steps{font-family:var(--f-note);font-size:14px;line-height:1.6;color:var(--ink-2);margin:0 0 12px;padding-left:20px}
+  .steps li{margin-bottom:5px}
+  .keyrow{display:flex;gap:8px;align-items:flex-start}
+  .keyrow input{flex:1 1 auto}
+  .saved{color:var(--good);font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span>Locked In</div>
+    <span class="spacer"></span>
+    <button class="sm ghost" id="themeBtn">Theme</button>
+  </div>
+</div>
+
+<div class="wrap" style="padding-block:24px 60px">
+
+  <div class="panel">
+    <h3>Arrival</h3>
+    <p class="sub">The extension arms the briefing the first time you use the browser after this hour each day. It only fires once a day, and it never opens a window on its own — the next new tab delivers it.</p>
+    <div class="fldrow">
+      <div>
+        <label class="fld" for="arriveHour">Home after</label>
+        <select id="arriveHour" style="font-family:var(--f-display);font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:7px;padding:9px 10px;width:100%"></select>
+      </div>
+      <div>
+        <label class="fld" for="nameBox">Your name (optional)</label>
+        <input type="text" id="nameBox" placeholder="shown in the welcome line">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Calendar feed</h3>
+    <p class="sub">Paste the <b>secret iCal address</b> of your Google Calendar. It's read-only, needs no sign-in, and works from your phone too. Calendar only removes time from the evening and flags deadlines — it never creates a task.</p>
+    <ol class="steps">
+      <li>Google Calendar → hover your calendar in the left sidebar → ⋮ → <b>Settings and sharing</b></li>
+      <li>Scroll to <b>Integrate calendar</b></li>
+      <li>Copy <b>Secret address in iCal format</b> and paste it below</li>
+    </ol>
+    <label class="fld" for="icsUrl">Secret .ics address</label>
+    <input type="url" id="icsUrl" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+    <p class="sub" style="margin-top:8px">Anyone with this link can read your calendar, so keep it to yourself. Other calendar apps work too — Outlook and most school portals publish an .ics feed.</p>
+    <div class="btnrow"><button class="sm" id="testCal">Test feed</button><span id="calResult" class="msg" style="align-self:center"></span></div>
+  </div>
+
+  <div class="panel">
+    <h3>Phone sync</h3>
+    <p class="sub">This is what makes the 3:00 upload land on your PC. Both devices read and write one key in a free Firebase Realtime Database. Leave it blank and everything still works — just on one device at a time.</p>
+    <ol class="steps">
+      <li>Go to <b>console.firebase.google.com</b> → Add project (free Spark plan is plenty)</li>
+      <li><b>Build → Realtime Database → Create Database</b>, and start in <b>test mode</b></li>
+      <li>Copy the database URL from the top of that page and paste it below</li>
+      <li>Click <b>New key</b>, then put the same two values into the phone app</li>
+    </ol>
+    <label class="fld" for="cloudUrl">Database URL</label>
+    <input type="url" id="cloudUrl" placeholder="https://your-project-default-rtdb.firebaseio.com">
+    <label class="fld" for="cloudKey" style="margin-top:11px">Shared key</label>
+    <div class="keyrow">
+      <input type="text" id="cloudKey" placeholder="a long random string, same on both devices">
+      <button class="sm" id="genKey">New key</button>
+    </div>
+    <p class="sub" style="margin-top:8px">
+      The key is the only thing protecting your list — test-mode rules let anyone who knows the exact path read it. Use the generated one, and don't post it anywhere. If you'd rather lock it down properly, set your database rules to
+      <code class="k">{"rules":{"lockedin":{"$k":{".read":true,".write":true}}}}</code> and treat the key as the password.
+    </p>
+    <div class="btnrow"><button class="sm" id="testCloud">Test connection</button><span id="cloudResult" class="msg" style="align-self:center"></span></div>
+  </div>
+
+  <div class="panel">
+    <h3>The pinned tab</h3>
+    <p class="sub">
+      Locked In lives in one pinned tab at the far left of your tab strip — a single favicon that
+      survives restarts. It does <b>not</b> touch your new tab page. <code class="k">Ctrl+Shift+L</code>
+      jumps to it from anywhere.
+    </p>
+    <div class="check">
+      <input type="checkbox" id="pinTab" checked>
+      <label for="pinTab"><b>Keep a pinned tab open.</b> Re-pinned on every browser start. Close it whenever you like — it won't fight you until the next restart.</label>
+    </div>
+
+    <p class="fld" style="margin-top:16px">What that tab shows</p>
+    <div class="check">
+      <input type="radio" name="ntmode" id="ntNow" value="now">
+      <label for="ntNow"><b>Right now</b> — one task, one duration, one reason. The full briefing is one click away.</label>
+    </div>
+    <div class="check">
+      <input type="radio" name="ntmode" id="ntFull" value="full">
+      <label for="ntFull"><b>Full briefing</b> — the whole evening, voice, reminders, inbox, goals.</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Model access</h3>
+    <p class="sub">
+      Optional, and everything works without it. A key buys three things: reading screenshots (there is no local OCR),
+      pulling tasks out of messy text the rules pass misses, and answering questions the lookup router doesn't recognise.
+      It never decides what order your evening goes in — that stays arithmetic.
+    </p>
+    <div class="pick">
+      <label id="provOpenaiL">
+        <input type="radio" name="prov" id="provOpenai" value="openai" checked>
+        <span class="pt">OpenAI</span><span class="ps">GPT-5.1 · platform.openai.com/api-keys</span>
+      </label>
+      <label id="provAnthropicL">
+        <input type="radio" name="prov" id="provAnthropic" value="anthropic">
+        <span class="pt">Anthropic</span><span class="ps">Claude · console.anthropic.com</span>
+      </label>
+    </div>
+    <label class="fld" for="apiKey" style="margin-top:14px">API key</label>
+    <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="sk-proj-…">
+    <label class="fld" for="model" style="margin-top:11px">Model</label>
+    <input type="text" id="model" spellcheck="false" placeholder="gpt-5.1">
+    <p class="sub" style="margin-top:8px">
+      Stored in this browser's local extension storage only. It is never written to the sync database, so it does not
+      travel to your phone — add it separately there if you want it. Calls go straight from this browser to Anthropic
+      and are billed to your own account. Get a key at <b>console.anthropic.com</b>.
+    </p>
+    <div class="btnrow"><button class="sm" id="testKey">Test key</button><span id="keyResult" class="msg" style="align-self:center"></span></div>
+  </div>
+
+  <div class="panel">
+    <h3>GitHub</h3>
+    <p class="sub">Pulls your recent public activity into the inbox as context. Each repo becomes a candidate quoting the real commit line — it does not become a task until you accept it.</p>
+    <div class="fldrow">
+      <div>
+        <label class="fld" for="githubUser">Username</label>
+        <input type="text" id="githubUser" spellcheck="false" placeholder="your-handle">
+      </div>
+      <div>
+        <label class="fld" for="githubToken">Token (optional)</label>
+        <input type="password" id="githubToken" autocomplete="off" spellcheck="false" placeholder="for private repos / higher limits">
+      </div>
+    </div>
+    <div class="btnrow"><button class="sm" id="testGh">Test</button><span id="ghResult" class="msg" style="align-self:center"></span></div>
+  </div>
+
+  <div class="panel">
+    <h3>Danger zone</h3>
+    <p class="sub">Clears tonight's list and progress on this device. If sync is on, the cloud copy is overwritten too.</p>
+    <div class="btnrow"><button class="sm ghost" id="wipe">Clear tonight's list</button><span id="wipeResult" class="msg" style="align-self:center"></span></div>
+  </div>
+
+  <div class="btnrow" style="position:sticky;bottom:0;background:var(--ground);padding-block:14px;border-top:1px solid var(--line)">
+    <button class="go" id="save">Save settings</button>
+    <span id="savedMsg" class="saved" style="align-self:center"></span>
+  </div>
+</div>
+
+<script type="module" src="options.js"></script>
+</body>
+</html>

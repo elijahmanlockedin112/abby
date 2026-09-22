@@ -1,0 +1,1512 @@
+<title>Locked In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+/* ---------- tokens: light is the base set ---------- */
+:root{
+  --ground:#EEF0F4;
+  --surface:#FFFFFF;
+  --surface-2:#F6F7FA;
+  --line:#DCE0E8;
+  --line-strong:#C3C9D4;
+  --ink:#161922;
+  --ink-2:#4B5261;
+  --ink-3:#787F8E;
+
+  --accent:#D89A1E;          /* fills */
+  --accent-ink:#855A00;      /* text on ground */
+  --accent-soft:#FAEFD8;
+  --accent-edge:#E6BE6B;
+
+  --good:#2C7A4E;
+  --good-soft:#E2F2E8;
+  --warn:#AE5E27;
+  --warn-soft:#FBEBDE;
+  --crit:#AB3434;
+  --crit-soft:#FAE4E4;
+
+  --shadow:0 1px 2px rgba(22,25,34,.06), 0 6px 18px -12px rgba(22,25,34,.25);
+  --radius:10px;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-note:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#13151C;
+    --surface:#1B1E27;
+    --surface-2:#22262F;
+    --line:#2C313D;
+    --line-strong:#3D4351;
+    --ink:#E9EBF0;
+    --ink-2:#A6ADBC;
+    --ink-3:#777E8D;
+
+    --accent:#E9B44C;
+    --accent-ink:#EFC067;
+    --accent-soft:#332810;
+    --accent-edge:#6B551F;
+
+    --good:#5FBF8A;
+    --good-soft:#15291F;
+    --warn:#E08A52;
+    --warn-soft:#2E1F14;
+    --crit:#EF7070;
+    --crit-soft:#2E1616;
+
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#13151C;
+  --surface:#1B1E27;
+  --surface-2:#22262F;
+  --line:#2C313D;
+  --line-strong:#3D4351;
+  --ink:#E9EBF0;
+  --ink-2:#A6ADBC;
+  --ink-3:#777E8D;
+
+  --accent:#E9B44C;
+  --accent-ink:#EFC067;
+  --accent-soft:#332810;
+  --accent-edge:#6B551F;
+
+  --good:#5FBF8A;
+  --good-soft:#15291F;
+  --warn:#E08A52;
+  --warn-soft:#2E1F14;
+  --crit:#EF7070;
+  --crit-soft:#2E1616;
+
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--f-display);
+  font-size:15px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1140px;margin:0 auto;padding-inline:16px;padding-block:0 56px}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  background:color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar .inner{
+  max-width:1140px;margin:0 auto;padding-inline:16px;
+  min-height:52px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.brand{font-weight:800;letter-spacing:-.025em;font-size:16px;display:flex;align-items:center;gap:8px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none}
+.brand .dot.live{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.brand .dot.live{animation:none}}
+.topbar .spacer{flex:1 1 auto}
+.clock{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink-2)}
+.chip{
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-3);
+  white-space:nowrap;
+}
+.chip.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:var(--good-soft)}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:var(--warn-soft)}
+.chip.crit{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent);background:var(--crit-soft)}
+.chip.acc{color:var(--accent-ink);border-color:var(--accent-edge);background:var(--accent-soft)}
+
+/* ---------- briefing ---------- */
+.brief{padding-block:26px 18px}
+.brief h1{
+  font-size:clamp(26px,5vw,38px);font-weight:800;letter-spacing:-.035em;margin:0;
+  text-wrap:balance;
+}
+.brief h1 .t{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;font-size:.72em;color:var(--accent-ink);letter-spacing:-.01em}
+.brief .say{
+  font-family:var(--f-note);font-size:17px;line-height:1.55;color:var(--ink-2);
+  max-width:62ch;margin:10px 0 0;
+}
+.brief .say b{color:var(--ink);font-weight:600}
+
+/* ---------- runway ---------- */
+.runway{margin-top:20px}
+.runway .rail{
+  display:flex;height:46px;border-radius:8px;overflow:hidden;
+  border:1px solid var(--line-strong);background:var(--surface-2);
+}
+.seg{flex-grow:1;flex-shrink:1;flex-basis:0;min-width:3px;position:relative;border-right:1px solid var(--ground)}
+.seg:last-child{border-right:0}
+.seg.task{background:var(--accent-soft);border-top:3px solid var(--accent)}
+.seg.task.now{background:color-mix(in srgb,var(--accent) 26%,var(--surface))}
+.seg.task.over{border-top-color:var(--warn);background:var(--warn-soft)}
+.seg.busy{
+  background:repeating-linear-gradient(45deg,var(--line) 0 4px,transparent 4px 9px);
+  border-top:3px solid var(--line-strong);
+}
+.seg.free{background:transparent;border-top:3px solid transparent}
+.seg .n{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-size:11px;font-weight:600;color:var(--ink-2);
+  overflow:hidden;white-space:nowrap;
+}
+.seg.task .n{color:var(--accent-ink)}
+.seg.task.now .n{color:var(--ink)}
+.runway .ends{
+  display:flex;justify-content:space-between;margin-top:6px;
+  font-family:var(--f-mono);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;
+}
+.runway .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--ink-3)}
+.runway .legend i{display:inline-block;width:18px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;font-style:normal}
+.lg-task{background:var(--accent-soft);border-top:3px solid var(--accent)}
+.lg-busy{background:repeating-linear-gradient(45deg,var(--line) 0 3px,transparent 3px 7px);border-top:3px solid var(--line-strong)}
+.lg-free{border:1px dashed var(--line-strong)}
+
+/* ---------- layout ---------- */
+.cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:22px;margin-top:26px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+
+.sechead{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+.sechead h2{font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:0;color:var(--ink-3)}
+.sechead .note{font-family:var(--f-note);font-size:13px;color:var(--ink-3);font-style:italic}
+
+/* ---------- plan blocks ---------- */
+.blocks{display:flex;flex-direction:column;gap:10px}
+.blk{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  display:grid;grid-template-columns:52px minmax(0,1fr);overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.blk .gut{
+  background:var(--surface-2);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding-block:12px;gap:6px;
+}
+.blk .idx{font-family:var(--f-mono);font-size:15px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.blk .tick{width:3px;border-radius:2px;background:var(--line-strong);flex:1 1 auto;min-height:14px}
+.blk .body{padding:12px 14px 13px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.blk .row1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.blk .ttl{font-size:16.5px;font-weight:700;letter-spacing:-.015em;min-width:0;overflow-wrap:anywhere}
+.blk .when{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.blk .why{font-family:var(--f-note);font-size:14.5px;line-height:1.5;color:var(--ink-2);max-width:60ch}
+.blk .why em{font-style:italic;color:var(--ink-3)}
+.blk .acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px}
+
+/* proportional weight: taller block = longer task */
+.blk[data-min]{min-height:calc(66px + var(--m,30) * 0.52px)}
+.blk .tick{background:linear-gradient(var(--accent-edge),var(--line-strong))}
+
+.blk.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent), var(--shadow)}
+.blk.now .gut{background:var(--accent-soft);border-right-color:var(--accent-edge)}
+.blk.now .idx{color:var(--accent-ink)}
+.blk.now .tick{background:var(--accent)}
+.blk.done{opacity:.62}
+.blk.done .ttl{text-decoration:line-through;text-decoration-color:var(--ink-3);text-decoration-thickness:1.5px}
+.blk.done .gut{background:var(--good-soft);border-right-color:color-mix(in srgb,var(--good) 35%,transparent)}
+.blk.done .idx,.blk.done .tick{color:var(--good);background:none}
+.blk.done .tick{background:var(--good)}
+.blk.skip{opacity:.5}
+.blk.busy{background:var(--surface-2);box-shadow:none}
+.blk.busy .gut{background:transparent}
+.blk.busy .ttl{font-weight:600;font-size:15px;color:var(--ink-2)}
+.blk.free{background:transparent;border-style:dashed;box-shadow:none;min-height:0}
+.blk.free .gut{background:transparent;border-right-style:dashed}
+.blk.free .ttl{font-weight:600;font-size:15px;color:var(--ink-3)}
+.blk.over{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.blk.over .gut{background:var(--warn-soft)}
+
+.timer{font-family:var(--f-mono);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--accent-ink)}
+.timer.over{color:var(--warn)}
+
+/* ---------- overflow / didn't fit ---------- */
+.spill{
+  margin-top:14px;border:1px solid color-mix(in srgb,var(--crit) 40%,var(--line));
+  background:var(--crit-soft);border-radius:var(--radius);padding:13px 15px;
+}
+.spill h3{margin:0 0 4px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--crit)}
+.spill p{margin:0 0 9px;font-family:var(--f-note);font-size:14px;color:var(--ink-2);max-width:58ch}
+.spill ul{margin:0;padding-left:18px;font-size:14.5px}
+.spill li{margin-bottom:3px}
+.spill li span{font-family:var(--f-mono);font-size:12px;color:var(--ink-3)}
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 15px 15px;margin-bottom:14px;box-shadow:var(--shadow);
+}
+.panel > h3{
+  margin:0 0 3px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+}
+.panel .sub{font-family:var(--f-note);font-size:13px;color:var(--ink-3);margin:0 0 11px;line-height:1.45}
+
+/* the 1:1 ledger */
+.ledger{
+  display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-bottom:11px;
+}
+.ledger div{flex:1 1 0;padding:7px 9px;text-align:center;border-right:1px solid var(--line);min-width:0}
+.ledger div:last-child{border-right:0}
+.ledger b{display:block;font-family:var(--f-mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.ledger small{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-top:3px}
+.ledger .zero b{color:var(--good)}
+.ledger .bad b{color:var(--crit)}
+
+.srclist{list-style:none;margin:0;padding:0;font-size:14px}
+.srclist li{
+  display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line);
+}
+.srclist li:first-child{border-top:0}
+.srclist .mark{
+  font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);padding-top:3px;flex:none;width:18px;text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.srclist .txt{min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
+.srclist .meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.srclist .added .txt{color:var(--accent-ink)}
+.tag{
+  font-family:var(--f-mono);font-size:10.5px;padding:1.5px 6px;border-radius:4px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--ink-3);white-space:nowrap;
+}
+.tag.due{color:var(--accent-ink);border-color:var(--accent-edge);background:var(--accent-soft)}
+.tag.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent);background:var(--good-soft)}
+
+/* ---------- calendar panel ---------- */
+.callist{list-style:none;margin:0;padding:0;font-size:14px}
+.callist li{padding:7px 0;border-top:1px solid var(--line);display:flex;gap:9px;align-items:baseline}
+.callist li:first-child{border-top:0}
+.callist .ct{font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3);flex:none;font-variant-numeric:tabular-nums;width:88px}
+.callist .cn{min-width:0;overflow-wrap:anywhere}
+.callist .flag{display:block;font-family:var(--f-note);font-size:12.5px;color:var(--accent-ink);font-style:italic;margin-top:2px}
+.msg{font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0}
+.msg.err{color:var(--crit)}
+.msg code{font-family:var(--f-mono);font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+
+/* ---------- controls ---------- */
+button,.btn{
+  font-family:var(--f-display);font-size:13px;font-weight:600;letter-spacing:-.005em;
+  padding:6px 12px;border-radius:7px;border:1px solid var(--line-strong);
+  background:var(--surface);color:var(--ink);cursor:pointer;
+  transition:background .12s ease,border-color .12s ease,transform .06s ease;
+}
+button:hover{background:var(--surface-2);border-color:var(--ink-3)}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[disabled]{opacity:.45;cursor:not-allowed}
+button.go{background:var(--accent);border-color:var(--accent);color:#1B1405;font-weight:700}
+button.go:hover{background:var(--accent-edge);border-color:var(--accent-edge)}
+button.done{background:var(--good);border-color:var(--good);color:#fff}
+button.done:hover{background:var(--good);border-color:var(--good);filter:brightness(1.08)}
+button.ghost{background:transparent;border-color:var(--line)}
+button.sm{font-size:12px;padding:4px 9px}
+
+textarea,input[type=text],input[type=time],input[type=number],select{
+  font-family:var(--f-display);font-size:14px;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line-strong);border-radius:7px;
+  padding:8px 10px;width:100%;
+}
+textarea{font-family:var(--f-mono);font-size:13px;line-height:1.6;resize:vertical;min-height:132px}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+label.fld{display:block;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.fldrow{display:flex;gap:10px;flex-wrap:wrap}
+.fldrow > div{flex:1 1 120px;min-width:0}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+
+/* ---------- rules footnote ---------- */
+.rules{
+  margin-top:26px;border-top:1px solid var(--line);padding-top:18px;
+}
+.rules h2{font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:0 0 10px;color:var(--ink-3)}
+.rules ol{margin:0;padding-left:20px;font-family:var(--f-note);font-size:14.5px;line-height:1.6;color:var(--ink-2);max-width:72ch}
+.rules li{margin-bottom:7px}
+.rules b{font-family:var(--f-display);font-weight:700;font-size:13.5px;color:var(--ink)}
+.rules code{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+
+.banner{
+  border:1px solid var(--accent-edge);background:var(--accent-soft);color:var(--accent-ink);
+  border-radius:var(--radius);padding:10px 13px;margin-bottom:14px;font-size:13.5px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+}
+.banner .spacer{flex:1 1 auto}
+.banner.eg{border-style:dashed}
+</style>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="dot live" id="dot"></span>Locked In</div>
+    <span class="chip" id="srcChip">no list yet</span>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">--:--</span>
+    <button class="sm ghost" id="themeBtn" title="Switch theme">Theme</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section class="brief">
+    <h1 id="hdr">You're Home <span class="t" id="hdrTime"></span></h1>
+    <p class="say" id="say"></p>
+
+    <div class="runway">
+      <div class="rail" id="rail"></div>
+      <div class="ends"><span id="railStart"></span><span id="railEnd"></span></div>
+      <div class="legend">
+        <span><i class="lg-task"></i>planned work</span>
+        <span><i class="lg-busy"></i>calendar — time you don't have</span>
+        <span><i class="lg-free"></i>free</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="egBanner" class="banner eg" hidden>
+    <span><b>Example evening.</b> These four lines are placeholders so you can see how it reads — not your list.</span>
+    <span class="spacer"></span>
+    <button class="sm" id="egClear">Clear it</button>
+  </div>
+
+  <div id="staleBanner" class="banner" hidden>
+    <span id="staleTxt"></span><span class="spacer"></span>
+    <button class="sm" id="staleNew">Start a new evening</button>
+  </div>
+
+  <div class="cols">
+
+    <!-- ============ PLAN ============ -->
+    <section>
+      <div class="sechead">
+        <h2>Tonight, in order</h2>
+        <span class="note" id="planNote"></span>
+      </div>
+      <div class="blocks" id="blocks"></div>
+      <div id="spill"></div>
+
+      <div class="rules">
+        <h2>How the order is decided</h2>
+        <ol>
+          <li><b>Your list is the whole list.</b> Every block below comes from a line you uploaded. Nothing is added, merged, split, or reworded — the title you see is your line with only the bullet stripped off the front.</li>
+          <li><b>Deadline first, your order second.</b> Items are grouped by how soon they're due — tonight or tomorrow, then within 3 days, then within a week, then no deadline. Inside a group, the order you typed them wins. That's the only tiebreak.</li>
+          <li><b>A deadline has to be written down.</b> It comes from words in the line itself (<code>Thursday</code>, <code>due Fri</code>, <code>test 9/25</code>) or from a calendar event whose name matches the task. If neither exists, the item has no deadline and keeps your position for it.</li>
+          <li><b>Calendar takes time away; it never adds work.</b> Events between now and bedtime are carved out of the evening as unavailable. A calendar event never becomes a task.</li>
+          <li><b>Nothing gets compressed to fit.</b> If the list is longer than the evening, the overflow is named out loud instead of quietly shrinking every estimate.</li>
+          <li><b>Replanning is from right now.</b> Finish early, run long, or add something at 7pm — the remaining blocks are rebuilt from the actual clock, not the original plan.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ SIDE ============ -->
+    <aside class="side">
+
+      <div class="panel">
+        <h3>The list you uploaded</h3>
+        <p class="sub">The source of truth. Paste from your phone around 3:00 and it's waiting when you sit down.</p>
+
+        <div class="ledger" id="ledger"></div>
+        <ul class="srclist" id="srclist"></ul>
+
+        <div class="btnrow">
+          <button class="sm" id="editBtn">Paste / edit list</button>
+          <button class="sm ghost" id="aiBtn" hidden>Estimate times with AI</button>
+        </div>
+        <p class="msg" id="aiMsg" style="margin-top:9px" hidden></p>
+
+        <div id="editor" hidden style="margin-top:12px">
+          <label class="fld" for="listBox">One task per line</label>
+          <textarea id="listBox" spellcheck="false" placeholder="Biology ch 4 review — test Thursday (35m)&#10;FFA quiz prep 45m&#10;Finish GitHub project 1h&#10;Math pset"></textarea>
+          <p class="sub" style="margin:7px 0 0">
+            Optional, never required: <code style="font-family:var(--f-mono);font-size:12px">35m</code> or <code style="font-family:var(--f-mono);font-size:12px">1h</code> sets the estimate,
+            <code style="font-family:var(--f-mono);font-size:12px">due Fri</code> / <code style="font-family:var(--f-mono);font-size:12px">test Thursday</code> / <code style="font-family:var(--f-mono);font-size:12px">9/25</code> sets a deadline.
+            Anything unmarked gets your default estimate and no deadline.
+          </p>
+          <div class="btnrow">
+            <button class="go" id="saveList">Save as tonight's list</button>
+            <button class="ghost" id="cancelList">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Add to tonight</h3>
+        <p class="sub">The one other way a task can exist. Typed by you, timestamped, and the evening replans around it.</p>
+        <input type="text" id="addBox" placeholder="Oh crap — I need to finish this tonight">
+        <div class="btnrow"><button class="sm" id="addBtn">Add &amp; replan</button></div>
+      </div>
+
+      <div class="panel">
+        <h3>Calendar</h3>
+        <p class="sub">Reminders and blocked time only. Your to-do list decides what the work is.</p>
+        <div id="calBody"><p class="msg">Not loaded yet.</p></div>
+        <div class="btnrow"><button class="sm" id="calBtn">Pull today &amp; this week</button></div>
+      </div>
+
+      <div class="panel">
+        <h3>Settings</h3>
+        <div class="fldrow">
+          <div>
+            <label class="fld" for="bedBox">Bedtime</label>
+            <input type="time" id="bedBox" value="22:00">
+          </div>
+          <div>
+            <label class="fld" for="estBox">Default estimate</label>
+            <input type="number" id="estBox" min="5" max="180" step="5" value="30">
+          </div>
+        </div>
+        <p class="sub" style="margin:10px 0 0" id="syncMsg">Saving locally to this browser.</p>
+      </div>
+
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   1. TIME HELPERS
+   ========================================================= */
+var MIN = 60000;
+var DAYNAMES = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+var SHORTDAY = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function pad(n){ return (n<10?"0":"")+n; }
+function todayKey(d){ d=d||new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function fmtClock(d){
+  var h=d.getHours(), m=d.getMinutes(), ap=h>=12?"PM":"AM";
+  h=h%12; if(h===0)h=12;
+  return h+":"+pad(m)+" "+ap;
+}
+function fmtDur(mins){
+  mins = Math.max(0, Math.round(mins));
+  var h=Math.floor(mins/60), m=mins%60;
+  if(h && m) return h+"h "+m+"m";
+  if(h) return h+"h";
+  return m+"m";
+}
+function dayStart(d){ var x=new Date(d); x.setHours(0,0,0,0); return x; }
+function daysBetween(a,b){ return Math.round((dayStart(b)-dayStart(a))/86400000); }
+
+/* =========================================================
+   2. STATE
+   ========================================================= */
+var S = {
+  date: todayKey(),
+  tasks: [],           // {id, raw, title, est, due, dueKind, dueSrc, status, actual, addedAt, ord}
+  bedtime: "22:00",
+  defaultEst: 30,
+  uploadedAt: null,
+  active: null,        // {id, startedAt}
+  isExample: true
+};
+var CAL = { state:"idle", events:[], err:null, at:null };
+var db = null, sample = null, mcp = null;
+var seq = 0;
+
+function uid(){ return "t"+(Date.now().toString(36))+(seq++).toString(36)+Math.floor(Math.random()*1296).toString(36); }
+
+/* =========================================================
+   3. PARSING — deterministic, and narrow on purpose.
+      It reads metadata off a line. It never rewrites the line.
+   ========================================================= */
+function stripBullet(line){
+  return line.replace(/^\s*(?:[-*•–—]+\s+|\[\s*[xX ]?\s*\]\s*|\d+[.)]\s+)/, "").trim();
+}
+
+function parseEst(line){
+  var m = line.match(/\b(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i);
+  if(m) return Math.round(parseFloat(m[1])*60);
+  m = line.match(/\((\d+)\s*(?:m|min|mins|minute|minutes)?\)/i);
+  if(m) return parseInt(m[1],10);
+  m = line.match(/\b(\d+)\s*(?:m|min|mins|minute|minutes)\b/i);
+  if(m) return parseInt(m[1],10);
+  return null;
+}
+
+function nextDow(target, from){
+  var d = dayStart(from);
+  var delta = (target - d.getDay() + 7) % 7;
+  if(delta === 0) delta = 7;          // "Thursday" said on a Thursday means next Thursday
+  d.setDate(d.getDate()+delta);
+  return d;
+}
+
+function parseDue(line, now){
+  var low = line.toLowerCase();
+  var kind = "Due";
+  var km = low.match(/\b(test|quiz|exam|presentation|meet|comp|competition|due|deadline)\b/);
+  if(km){
+    var k = km[1];
+    kind = k==="due"||k==="deadline" ? "Due"
+         : k.charAt(0).toUpperCase()+k.slice(1);
+  }
+  // explicit numeric date  9/25  or 9-25
+  var nm = low.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
+  if(nm){
+    var d = new Date(now.getFullYear(), parseInt(nm[1],10)-1, parseInt(nm[2],10));
+    if(daysBetween(now,d) < -30) d.setFullYear(d.getFullYear()+1);
+    return {due:d, kind:kind};
+  }
+  if(/\btonight\b|\btoday\b/.test(low)) return {due:dayStart(now), kind:kind};
+  if(/\btomorrow\b/.test(low)){ var t=dayStart(now); t.setDate(t.getDate()+1); return {due:t, kind:kind}; }
+  for(var i=0;i<7;i++){
+    var full = DAYNAMES[i], ab = full.slice(0,3);
+    var re = new RegExp("\\b("+full+"|"+ab+")\\b","i");
+    if(re.test(low)) return {due:nextDow(i, now), kind:kind};
+  }
+  return null;
+}
+
+function parseList(text, now){
+  var lines = text.split(/\r?\n/);
+  var out = [];
+  for(var i=0;i<lines.length;i++){
+    var title = stripBullet(lines[i]);
+    if(!title) continue;
+    var est = parseEst(title);
+    var due = parseDue(title, now);
+    out.push({
+      id: uid(),
+      raw: lines[i],
+      title: title,
+      est: est || S.defaultEst,
+      estGuessed: !est,
+      due: due ? todayKey(due.due) : null,
+      dueKind: due ? due.kind : null,
+      dueSrc: due ? "line" : null,
+      status: "pending",
+      actual: null,
+      addedAt: null,
+      ord: out.length
+    });
+  }
+  return out;
+}
+
+/* =========================================================
+   4. CALENDAR — blocked time + deadline flags. Never a task.
+   ========================================================= */
+function calMatch(task){
+  // A calendar event flags a task only when they share a distinctive word.
+  var words = task.title.toLowerCase().match(/[a-z]{4,}/g) || [];
+  var stop = {"with":1,"this":1,"that":1,"from":1,"work":1,"time":1,"finish":1,"start":1,"review":1,"study":1,"todo":1,"need":1,"prep":1};
+  var best = null;
+  for(var i=0;i<CAL.events.length;i++){
+    var ev = CAL.events[i];
+    var en = (ev.title||"").toLowerCase();
+    for(var j=0;j<words.length;j++){
+      if(stop[words[j]]) continue;
+      if(en.indexOf(words[j]) !== -1){ if(!best || ev.start < best.start) best = ev; break; }
+    }
+  }
+  return best;
+}
+
+function calBusy(from, to){
+  var out = [];
+  for(var i=0;i<CAL.events.length;i++){
+    var ev = CAL.events[i];
+    if(ev.allDay || !ev.end) continue;
+    var s = Math.max(ev.start, from), e = Math.min(ev.end, to);
+    if(e - s >= 5*MIN) out.push({s:s, e:e, title:ev.title});
+  }
+  out.sort(function(a,b){return a.s-b.s;});
+  // merge overlaps
+  var merged = [];
+  for(var k=0;k<out.length;k++){
+    var last = merged[merged.length-1];
+    if(last && out[k].s <= last.e){ last.e = Math.max(last.e, out[k].e); last.title += " + " + out[k].title; }
+    else merged.push({s:out[k].s, e:out[k].e, title:out[k].title});
+  }
+  return merged;
+}
+
+/* =========================================================
+   5. THE ENGINE — deterministic ordering + first-fit layout.
+      Input: your tasks. Output: those same tasks, in order.
+      It cannot emit anything that was not in `S.tasks`.
+   ========================================================= */
+function bedtimeAt(now){
+  var p = (S.bedtime||"22:00").split(":");
+  var b = new Date(now); b.setHours(parseInt(p[0],10)||22, parseInt(p[1],10)||0, 0, 0);
+  return b;
+}
+
+function rankOf(t, now){
+  var due = effectiveDue(t);
+  if(!due) return 3;
+  var d = daysBetween(now, due);
+  if(d <= 1) return 0;
+  if(d <= 3) return 1;
+  if(d <= 7) return 2;
+  return 3;
+}
+function effectiveDue(t){
+  if(t.due) return new Date(t.due + "T00:00:00");
+  var m = t._calFlag;
+  if(m) return new Date(m.start);
+  return null;
+}
+
+function buildPlan(now){
+  var end = bedtimeAt(now);
+  var horizon = Math.max(0, end - now);
+  var busy = calBusy(now.getTime(), end.getTime());
+
+  // 1. mark calendar flags so ranking can see them
+  for(var i=0;i<S.tasks.length;i++){
+    S.tasks[i]._calFlag = S.tasks[i].due ? null : calMatch(S.tasks[i]);
+  }
+
+  // 2. order: deadline bucket, then the order you typed it
+  var pending = S.tasks.filter(function(t){ return t.status === "pending"; });
+  pending.sort(function(a,b){
+    var ra = rankOf(a, now), rb = rankOf(b, now);
+    if(ra !== rb) return ra - rb;
+    var da = effectiveDue(a), dbb = effectiveDue(b);
+    if(da && dbb && +da !== +dbb) return da - dbb;
+    return a.ord - b.ord;
+  });
+
+  // 3. lay out into the gaps the calendar leaves
+  var cursor = now.getTime();
+  var segs = [], spill = [];
+  var gaps = [];
+  var walk = cursor;
+  for(var b2=0;b2<busy.length;b2++){
+    if(busy[b2].s > walk) gaps.push({s:walk, e:busy[b2].s});
+    walk = Math.max(walk, busy[b2].e);
+  }
+  if(walk < end.getTime()) gaps.push({s:walk, e:end.getTime()});
+
+  // the task you're running right now holds its real slot, at the front
+  var activeSeg = null;
+  if(S.active){
+    var at = S.tasks.filter(function(t){return t.id===S.active.id;})[0];
+    if(at && at.status === "pending"){
+      var planEnd = S.active.startedAt + at.est*MIN;
+      var realEnd = Math.max(planEnd, now.getTime());
+      activeSeg = {type:"task", s:S.active.startedAt, e:realEnd, task:at, running:true, over: now.getTime() > planEnd};
+      pending = pending.filter(function(t){ return t.id !== at.id; });
+      // everything else starts after it
+      for(var g0=0;g0<gaps.length;g0++){ if(gaps[g0].s < realEnd) gaps[g0].s = Math.min(Math.max(gaps[g0].s, realEnd), gaps[g0].e); }
+      gaps = gaps.filter(function(g){ return g.e > g.s; });
+    }
+  }
+
+  for(var p=0;p<pending.length;p++){
+    var t = pending[p], len = t.est*MIN, placed=false;
+    for(var g=0;g<gaps.length;g++){
+      if(gaps[g].e - gaps[g].s >= len){
+        segs.push({type:"task", s:gaps[g].s, e:gaps[g].s+len, task:t});
+        gaps[g].s += len; placed=true; break;
+      }
+    }
+    if(!placed) spill.push(t);
+  }
+
+  for(var bz=0;bz<busy.length;bz++) segs.push({type:"busy", s:busy[bz].s, e:busy[bz].e, title:busy[bz].title});
+  for(var gf=0;gf<gaps.length;gf++) if(gaps[gf].e - gaps[gf].s >= 5*MIN) segs.push({type:"free", s:gaps[gf].s, e:gaps[gf].e});
+  if(activeSeg) segs.push(activeSeg);
+
+  segs.sort(function(a,b){ return a.s - b.s; });
+
+  var freeMin = 0;
+  for(var q=0;q<segs.length;q++) if(segs[q].type==="free") freeMin += (segs[q].e-segs[q].s)/MIN;
+
+  return {segs:segs, spill:spill, end:end, horizon:horizon, freeMin:freeMin, busy:busy};
+}
+
+/* =========================================================
+   6. REASON LINES — string templates over the data.
+      No model writes these. Every clause is checkable.
+   ========================================================= */
+function reasonFor(t, now, plan, position){
+  var bits = [];
+  var due = effectiveDue(t);
+  if(t.due){
+    var d = daysBetween(now, due);
+    var when = d===0 ? "today" : d===1 ? "tomorrow" : SHORTDAY[due.getDay()]+" ("+d+" days out)";
+    bits.push((t.dueKind||"Due")+" "+when+".");
+  } else if(t._calFlag){
+    var f = t._calFlag, fd = daysBetween(now, new Date(f.start));
+    bits.push("Calendar: “"+f.title+"” "+(fd===0?"today":fd===1?"tomorrow":SHORTDAY[new Date(f.start).getDay()]+", "+fd+" days out")+".");
+  } else {
+    bits.push("<em>No deadline written on this line. Holding your list order (#"+(t.ord+1)+").</em>");
+  }
+  if(position === 0 && (t.due || t._calFlag)){
+    var others = S.tasks.filter(function(x){ return x.status==="pending" && x.id!==t.id && effectiveDue(x); });
+    if(others.length) bits.push("Nearest deadline on the list, so it goes first.");
+    else bits.push("The only thing on the list with a deadline.");
+  }
+  if(t.addedAt) bits.push("<em>You added this at "+fmtClock(new Date(t.addedAt))+".</em>");
+  if(t.estGuessed) bits.push("<em>"+t.est+"m is the default — no time was written on the line.</em>");
+  return bits.join(" ");
+}
+
+function briefing(now, plan){
+  var left = Math.max(0, (plan.end - now)/MIN);
+  var total = S.tasks.length;
+  var pend = S.tasks.filter(function(t){return t.status==="pending";}).length;
+  var done = S.tasks.filter(function(t){return t.status==="done";}).length;
+  var planned = plan.segs.filter(function(s){return s.type==="task";}).length;
+
+  if(!total) return "No list yet. Paste tonight's tasks on the right and this fills in — it won't invent any.";
+  if(left <= 0) return "Past your bedtime of "+fmtClock(plan.end)+". "+(pend? pend+" item"+(pend===1?"":"s")+" didn't get done; they're still on the list.":"The list is clear.");
+
+  var s = [];
+  s.push("<b>"+fmtDur(left)+"</b> before bedtime at "+fmtClock(plan.end)+".");
+  if(S.uploadedAt) s.push(total+" item"+(total===1?"":"s")+" came in at "+fmtClock(new Date(S.uploadedAt))+";");
+  else s.push(total+" item"+(total===1?"":"s")+" on the list;");
+
+  if(done) s.push("<b>"+done+" done</b>,");
+  s.push("<b>"+planned+"</b> fit"+(planned===1?"s":"")+" tonight"+(plan.spill.length? ", <b>"+plan.spill.length+" "+(plan.spill.length===1?"doesn't":"don't")+"</b>.":".") );
+
+  if(plan.busy.length) s.push("Calendar takes "+fmtDur(plan.busy.reduce(function(a,b){return a+(b.e-b.s)/MIN;},0))+" out of the middle.");
+
+  var first = plan.segs.filter(function(x){return x.type==="task";})[0];
+  if(first){
+    var t = first.task;
+    if(t.due || t._calFlag){
+      var d = daysBetween(now, effectiveDue(t));
+      s.push("<b>"+t.title+"</b> goes first — "+(d<=0?"it's due today":d===1?"it's due tomorrow":"it's the nearest deadline, "+d+" days out")+".");
+    } else {
+      s.push("<b>"+t.title+"</b> goes first — nothing on the list has a deadline, so your own order stands.");
+    }
+  }
+  if(plan.freeMin >= 20) s.push("That leaves <b>"+fmtDur(plan.freeMin)+"</b> free.");
+  return s.join(" ");
+}
+
+/* =========================================================
+   7. RENDER
+   ========================================================= */
+var $ = function(id){ return document.getElementById(id); };
+function el(tag, cls, txt){ var e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; }
+
+var lastMin = -1;
+
+function render(){
+  var now = new Date();
+  lastMin = now.getMinutes();
+  var plan = buildPlan(now);
+
+  // header
+  $("hdrTime").textContent = fmtClock(now);
+  $("clock").textContent = fmtClock(now);
+  var left = (plan.end - now)/MIN;
+  $("hdr").firstChild.nodeValue = left <= 0 ? "Past Bedtime " : (now.getHours() < 12 ? "Good Morning " : "You're Home ");
+  $("say").innerHTML = briefing(now, plan);
+
+  $("srcChip").textContent = S.tasks.length
+    ? (S.isExample ? "example list" : S.tasks.length+" items · "+(S.uploadedAt? fmtClock(new Date(S.uploadedAt)) : "saved"))
+    : "no list yet";
+  $("srcChip").className = "chip" + (S.tasks.length && !S.isExample ? " acc" : "");
+
+  renderRail(now, plan);
+  renderBlocks(now, plan);
+  renderSpill(plan);
+  renderLedger(plan);
+  renderSource();
+
+  $("planNote").textContent = plan.segs.filter(function(s){return s.type==="task";}).length
+    ? "rebuilt from " + fmtClock(now)
+    : "";
+
+  $("egBanner").hidden = !S.isExample || !S.tasks.length;
+
+  var stale = S.date !== todayKey();
+  $("staleBanner").hidden = !stale;
+  if(stale) $("staleTxt").innerHTML = "<b>This list is from "+S.date+".</b> It's kept as-is until you replace it.";
+}
+
+function renderRail(now, plan){
+  var rail = $("rail"); rail.textContent = "";
+  var span = Math.max(1, plan.end - now);
+  var drawn = plan.segs.filter(function(s){ return s.e > now.getTime() || s.running; });
+  if(!drawn.length){
+    var empty = el("div","seg free"); empty.style.flexGrow = 1;
+    var n = el("div","n", plan.end > now ? "nothing planned" : "past bedtime"); empty.appendChild(n); rail.appendChild(empty);
+  }
+  for(var i=0;i<drawn.length;i++){
+    var s = drawn[i];
+    var mins = Math.max(0, (Math.min(s.e, plan.end) - Math.max(s.s, now.getTime()))/MIN);
+    if(mins <= 0) continue;
+    var cls = "seg " + s.type + (s.running ? " now" : "") + (s.over ? " over" : "");
+    var d = el("div", cls);
+    d.style.flexGrow = mins;
+    var lbl = s.type==="task" ? String(taskNumber(plan, s.task)) : s.type==="busy" ? "" : "";
+    var n2 = el("div","n", mins >= 25 ? (s.type==="task" ? lbl+" · "+fmtDur(mins) : s.type==="busy" ? "busy" : fmtDur(mins)) : lbl);
+    d.appendChild(n2);
+    d.title = (s.type==="task" ? s.task.title : s.type==="busy" ? s.title : "Free")
+            + "  " + fmtClock(new Date(s.s)) + "–" + fmtClock(new Date(s.e));
+    rail.appendChild(d);
+  }
+  $("railStart").textContent = fmtClock(now) + "  ·  now";
+  $("railEnd").textContent = "bedtime  ·  " + fmtClock(plan.end);
+}
+
+function taskNumber(plan, task){
+  var n = 0;
+  for(var i=0;i<plan.segs.length;i++){
+    if(plan.segs[i].type !== "task") continue;
+    n++;
+    if(plan.segs[i].task.id === task.id) return n;
+  }
+  return n;
+}
+
+function renderBlocks(now, plan){
+  var host = $("blocks"); host.textContent = "";
+
+  var doneTasks = S.tasks.filter(function(t){return t.status==="done" || t.status==="skipped";});
+  for(var d=0; d<doneTasks.length; d++) host.appendChild(finishedBlock(doneTasks[d]));
+
+  if(!plan.segs.length && !doneTasks.length){
+    var e0 = el("div","blk free");
+    e0.appendChild(el("div","gut"));
+    var b0 = el("div","body");
+    b0.appendChild(el("div","ttl","Nothing planned"));
+    b0.appendChild(el("div","why","Paste tonight's list on the right. This page only ever shows what's on it."));
+    e0.appendChild(b0); host.appendChild(e0);
+    return;
+  }
+
+  var n = 0;
+  for(var i=0;i<plan.segs.length;i++){
+    var s = plan.segs[i];
+    if(s.type === "task"){ n++; host.appendChild(taskBlock(s, n, now, plan)); }
+    else if(s.type === "busy") host.appendChild(busyBlock(s));
+    else host.appendChild(freeBlock(s));
+  }
+}
+
+function taskBlock(seg, n, now, plan){
+  var t = seg.task;
+  var over = !!seg.over;
+  var wrap = el("div","blk" + (seg.running ? " now" : "") + (over ? " over" : ""));
+  wrap.setAttribute("data-min","1");
+  wrap.style.setProperty("--m", t.est);
+
+  var gut = el("div","gut");
+  gut.appendChild(el("div","idx", String(n)));
+  gut.appendChild(el("div","tick"));
+  wrap.appendChild(gut);
+
+  var body = el("div","body");
+  var row = el("div","row1");
+  row.appendChild(el("div","ttl", t.title));
+  row.appendChild(el("div","when", fmtClock(new Date(seg.s))+" – "+fmtClock(new Date(seg.e))+"  ·  "+fmtDur(t.est)));
+  body.appendChild(row);
+
+  var why = el("div","why");
+  why.innerHTML = reasonFor(t, now, plan, n-1);
+  body.appendChild(why);
+
+  var acts = el("div","acts");
+  if(seg.running){
+    var tm = el("div","timer" + (over ? " over" : ""), timerText(t, now));
+    tm.id = "liveTimer";
+    acts.appendChild(tm);
+    acts.appendChild(btn("Done", "done", function(){ finish(t.id, "done"); }));
+    acts.appendChild(btn("Stop", "ghost sm", function(){ S.active = null; save(); render(); }));
+  } else if(n === 1){
+    acts.appendChild(btn("▶ Start "+fmtDur(t.est)+" session", "go", function(){ start(t.id); }));
+    acts.appendChild(btn("Skip", "ghost sm", function(){ finish(t.id, "skipped"); }));
+  } else {
+    acts.appendChild(btn("Start this instead", "ghost sm", function(){ start(t.id); }));
+    acts.appendChild(btn("Skip", "ghost sm", function(){ finish(t.id, "skipped"); }));
+  }
+  acts.appendChild(btn("−15m", "ghost sm", function(){ bump(t.id, -15); }));
+  acts.appendChild(btn("+15m", "ghost sm", function(){ bump(t.id, 15); }));
+  body.appendChild(acts);
+
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function timerText(t, now){
+  var elapsed = (now - S.active.startedAt)/MIN;
+  return elapsed > t.est
+    ? "Running " + fmtDur(elapsed - t.est) + " over · " + fmtDur(elapsed) + " elapsed"
+    : fmtDur(t.est - elapsed) + " left · " + fmtDur(elapsed) + " elapsed";
+}
+
+function busyBlock(seg){
+  var w = el("div","blk busy");
+  w.appendChild(el("div","gut"));
+  var b = el("div","body");
+  var r = el("div","row1");
+  r.appendChild(el("div","ttl", seg.title || "Busy"));
+  r.appendChild(el("div","when", fmtClock(new Date(seg.s))+" – "+fmtClock(new Date(seg.e))));
+  b.appendChild(r);
+  b.appendChild(el("div","why","From your calendar. Time the plan routes around — not a task."));
+  w.appendChild(b);
+  return w;
+}
+
+function freeBlock(seg){
+  var w = el("div","blk free");
+  w.appendChild(el("div","gut"));
+  var b = el("div","body");
+  var r = el("div","row1");
+  r.appendChild(el("div","ttl","Free"));
+  r.appendChild(el("div","when", fmtClock(new Date(seg.s))+" – "+fmtClock(new Date(seg.e))+"  ·  "+fmtDur((seg.e-seg.s)/MIN)));
+  b.appendChild(r);
+  b.appendChild(el("div","why","Left empty on purpose. The list is finished by here."));
+  w.appendChild(b);
+  return w;
+}
+
+function finishedBlock(t){
+  var w = el("div","blk " + (t.status==="done" ? "done" : "skip"));
+  var g = el("div","gut");
+  g.appendChild(el("div","idx", t.status==="done" ? "✓" : "–"));
+  g.appendChild(el("div","tick"));
+  w.appendChild(g);
+  var b = el("div","body");
+  var r = el("div","row1");
+  r.appendChild(el("div","ttl", t.title));
+  r.appendChild(el("div","when", t.status==="done"
+    ? (t.actual!=null ? "took "+fmtDur(t.actual)+" · est "+fmtDur(t.est) : "done")
+    : "skipped"));
+  b.appendChild(r);
+  if(t.status==="done" && t.actual!=null){
+    var diff = t.actual - t.est;
+    b.appendChild(el("div","why", Math.abs(diff) < 5 ? "Right on your estimate."
+      : diff < 0 ? fmtDur(-diff)+" faster than planned — the rest of the evening shifted earlier."
+      : fmtDur(diff)+" longer than planned — the rest of the evening was rebuilt around it."));
+  }
+  var acts = el("div","acts");
+  acts.appendChild(btn("Put back", "ghost sm", function(){
+    var x = byId(t.id); if(x){ x.status="pending"; x.actual=null; save(); render(); }
+  }));
+  b.appendChild(acts);
+  w.appendChild(b);
+  return w;
+}
+
+function renderSpill(plan){
+  var host = $("spill"); host.textContent = "";
+  if(!plan.spill.length) return;
+  var box = el("div","spill");
+  box.appendChild(el("h3", null, plan.spill.length+" "+(plan.spill.length===1?"item doesn't":"items don't")+" fit tonight"));
+  var need = plan.spill.reduce(function(a,t){return a+t.est;},0);
+  box.appendChild(el("p", null,
+    "They'd need another "+fmtDur(need)+". Nothing was shrunk to make them fit — move bedtime, cut an estimate, or let these roll to tomorrow."));
+  var ul = el("ul");
+  for(var i=0;i<plan.spill.length;i++){
+    var li = el("li"); li.appendChild(document.createTextNode(plan.spill[i].title+" "));
+    li.appendChild(el("span",null,"("+fmtDur(plan.spill[i].est)+")"));
+    ul.appendChild(li);
+  }
+  box.appendChild(ul);
+  host.appendChild(box);
+}
+
+function renderLedger(plan){
+  var host = $("ledger"); host.textContent = "";
+  var inCount = S.tasks.filter(function(t){return !t.addedAt;}).length;
+  var added = S.tasks.filter(function(t){return !!t.addedAt;}).length;
+  var shown = plan.segs.filter(function(s){return s.type==="task";}).length
+            + S.tasks.filter(function(t){return t.status!=="pending";}).length
+            + plan.spill.length;
+  var invented = shown - S.tasks.length;
+  function cell(v, lbl, cls){
+    var d = el("div", cls||"");
+    d.appendChild(el("b", null, String(v)));
+    d.appendChild(el("small", null, lbl));
+    return d;
+  }
+  host.appendChild(cell(inCount, "uploaded"));
+  host.appendChild(cell(added, "added by you"));
+  host.appendChild(cell(shown, "accounted for"));
+  host.appendChild(cell(invented === 0 ? "0" : invented, "invented", invented === 0 ? "zero" : "bad"));
+}
+
+function renderSource(){
+  var ul = $("srclist"); ul.textContent = "";
+  if(!S.tasks.length){
+    var li0 = el("li"); li0.appendChild(el("div","txt","Nothing yet.")); ul.appendChild(li0); return;
+  }
+  var sorted = S.tasks.slice().sort(function(a,b){return a.ord-b.ord;});
+  for(var i=0;i<sorted.length;i++){
+    var t = sorted[i];
+    var li = el("li", t.addedAt ? "added" : "");
+    li.appendChild(el("div","mark", String(i+1)));
+    var tx = el("div","txt");
+    tx.appendChild(document.createTextNode(t.title));
+    var meta = el("div","meta");
+    meta.appendChild(el("span","tag", fmtDur(t.est) + (t.estGuessed ? " default" : "")));
+    if(t.due){
+      var dd = new Date(t.due+"T00:00:00");
+      meta.appendChild(el("span","tag due", (t.dueKind||"Due")+" "+SHORTDAY[dd.getDay()]));
+    } else if(t._calFlag){
+      meta.appendChild(el("span","tag due","cal: "+t._calFlag.title.slice(0,18)));
+    }
+    if(t.status === "done") meta.appendChild(el("span","tag done","done"));
+    if(t.status === "skipped") meta.appendChild(el("span","tag","skipped"));
+    if(t.addedAt) meta.appendChild(el("span","tag","added "+fmtClock(new Date(t.addedAt))));
+    tx.appendChild(meta);
+    li.appendChild(tx);
+    ul.appendChild(li);
+  }
+}
+
+function btn(label, cls, fn){
+  var b = document.createElement("button");
+  b.className = cls || "sm ghost";
+  b.textContent = label;
+  b.addEventListener("click", fn);
+  return b;
+}
+
+/* =========================================================
+   8. ACTIONS
+   ========================================================= */
+function byId(id){ return S.tasks.filter(function(t){return t.id===id;})[0]; }
+
+function start(id){
+  var t = byId(id); if(!t) return;
+  S.active = { id:id, startedAt: Date.now() };
+  save(); render();
+}
+function finish(id, how){
+  var t = byId(id); if(!t) return;
+  if(S.active && S.active.id === id){
+    t.actual = Math.max(1, Math.round((Date.now() - S.active.startedAt)/MIN));
+    S.active = null;
+  }
+  t.status = how;
+  save(); render();
+}
+function bump(id, delta){
+  var t = byId(id); if(!t) return;
+  t.est = Math.max(5, Math.min(300, t.est + delta));
+  t.estGuessed = false;
+  save(); render();
+}
+
+function commitList(text){
+  var now = new Date();
+  var parsed = parseList(text, now);
+  if(!parsed.length) return false;
+  S.tasks = parsed;
+  S.date = todayKey();
+  S.uploadedAt = Date.now();
+  S.active = null;
+  S.isExample = false;
+  save(); render();
+  return true;
+}
+
+function addOne(title){
+  title = stripBullet(title);
+  if(!title) return;
+  var now = new Date();
+  var est = parseEst(title), due = parseDue(title, now);
+  if(S.isExample){ S.tasks = []; S.isExample = false; }
+  S.tasks.push({
+    id: uid(), raw: title, title: title,
+    est: est || S.defaultEst, estGuessed: !est,
+    due: due ? todayKey(due.due) : null,
+    dueKind: due ? due.kind : null, dueSrc: due ? "line" : null,
+    status: "pending", actual: null, addedAt: Date.now(),
+    ord: S.tasks.length
+  });
+  S.date = todayKey();
+  save(); render();
+}
+
+/* =========================================================
+   9. PERSISTENCE — db when available, localStorage otherwise
+   ========================================================= */
+var LS = "lockedin.v1";
+function serialize(){
+  return {
+    date:S.date, bedtime:S.bedtime, defaultEst:S.defaultEst,
+    uploadedAt:S.uploadedAt, active:S.active, isExample:S.isExample,
+    tasks: S.tasks.map(function(t){
+      return {id:t.id,raw:t.raw,title:t.title,est:t.est,estGuessed:!!t.estGuessed,
+              due:t.due,dueKind:t.dueKind,dueSrc:t.dueSrc,status:t.status,
+              actual:t.actual,addedAt:t.addedAt,ord:t.ord};
+    })
+  };
+}
+function adopt(d){
+  if(!d || !Array.isArray(d.tasks)) return;
+  S.date = d.date || todayKey();
+  S.bedtime = d.bedtime || S.bedtime;
+  S.defaultEst = d.defaultEst || S.defaultEst;
+  S.uploadedAt = d.uploadedAt || null;
+  S.active = d.active || null;
+  S.isExample = !!d.isExample;
+  S.tasks = d.tasks.map(function(t,i){ t.ord = (t.ord==null? i : t.ord); return t; });
+  $("bedBox").value = S.bedtime;
+  $("estBox").value = S.defaultEst;
+}
+
+var writing = false, dirty = false, saveTimer = null;
+function save(){
+  try{ localStorage.setItem(LS, JSON.stringify(serialize())); }catch(e){}
+  if(!db) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushDb, 350);
+}
+function pushDb(){
+  if(!db) return;
+  if(writing){ dirty = true; return; }
+  writing = true;
+  db.doc("tonight/current").set(serialize()).then(function(){
+    $("syncMsg").textContent = "Synced · open this same page on your phone to drop tomorrow's list in.";
+  }, function(err){
+    $("syncMsg").textContent = err && err.code === "quota_exceeded"
+      ? "Storage is full — saved in this browser only."
+      : "Couldn't sync just now; saved in this browser.";
+  })["catch"](function(){})
+  .then(function(){
+    writing = false;
+    if(dirty){ dirty = false; pushDb(); }
+  });
+}
+
+/* =========================================================
+   10. CALENDAR FETCH
+   ========================================================= */
+function pickEvents(payload){
+  // The connector's envelope is known; the event array key is parsed tolerantly.
+  if(!payload || typeof payload !== "object") return [];
+  if(Array.isArray(payload)) return payload;
+  var keys = ["items","events","data","results"];
+  for(var i=0;i<keys.length;i++) if(Array.isArray(payload[keys[i]])) return payload[keys[i]];
+  for(var k in payload){
+    if(Object.prototype.hasOwnProperty.call(payload,k) && Array.isArray(payload[k])){
+      if(payload[k].length && typeof payload[k][0] === "object" && payload[k][0] &&
+         ("start" in payload[k][0] || "summary" in payload[k][0])) return payload[k];
+    }
+  }
+  return [];
+}
+function normEvent(ev){
+  if(!ev || typeof ev !== "object") return null;
+  var st = ev.start || {}, en = ev.end || {};
+  var sRaw = typeof st === "string" ? st : (st.dateTime || st.date || null);
+  var eRaw = typeof en === "string" ? en : (en.dateTime || en.date || null);
+  if(!sRaw) return null;
+  var allDay = typeof st === "object" && !st.dateTime && !!st.date;
+  // A bare "2026-09-25" parses as UTC midnight, which lands on the previous
+  // evening in a western timezone. Force date-only values to local midnight.
+  function ts(v){
+    if(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(v+"T00:00:00").getTime();
+    return new Date(v).getTime();
+  }
+  var s = ts(sRaw);
+  if(isNaN(s)) return null;
+  var e = eRaw ? ts(eRaw) : s + 60*MIN;
+  if(isNaN(e)) e = s + 60*MIN;
+  return {
+    title: String(ev.summary || ev.title || ev.name || "Untitled event"),
+    start: s, end: e, allDay: allDay,
+    location: ev.location || null
+  };
+}
+
+function calCopy(code, server){
+  switch(code){
+    case "server_not_connected": return ["Google Calendar isn't connected for this page. Add it in claude.ai Settings → Connectors, then pull again.", false];
+    case "needs_reauth":         return ["Google Calendar needs reconnecting in claude.ai Settings → Connectors.", false];
+    case "selection_required":   return ["You have more than one Google Calendar connector. Choose one when Claude asks, then pull again.", false];
+    case "not_in_manifest":
+    case "not_granted":          return ["Calendar access wasn't allowed for this page. The plan below still works — it just won't know about blocked time.", false];
+    case "blocked_by_policy":    return ["Your organization blocks Calendar for artifacts.", false];
+    case "approval_required":    return ["This needs per-call approval, which artifacts can't ask for yet.", false];
+    case "server_unavailable":   return ["Calendar didn't answer. Worth one more try.", true];
+    case "upstream_error":       return ["Calendar didn't come through. Try again in a moment.", true];
+    case "rate_limited":         return ["Too many Calendar requests just now. Give it a minute.", true];
+    case "cancelled":            return ["Calendar request stopped.", true];
+    case "capability_disabled":
+    case "capability_removed":   return ["Calendar isn't available in this view.", false];
+    default:                     return ["Calendar didn't load.", true];
+  }
+}
+
+function renderCal(){
+  var host = $("calBody"); host.textContent = "";
+  if(CAL.state === "loading"){ host.appendChild(el("p","msg","Pulling…")); return; }
+  if(CAL.state === "error"){
+    var pair = calCopy(CAL.err && CAL.err.code);
+    var p = el("p","msg err", pair[0]);
+    host.appendChild(p);
+    if(CAL.err && CAL.err.code === "tool_error" && CAL.err.message){
+      host.appendChild(el("p","msg", CAL.err.message));
+    }
+    return;
+  }
+  if(CAL.state === "idle"){ host.appendChild(el("p","msg","Not loaded yet.")); return; }
+
+  if(!CAL.events.length){
+    host.appendChild(el("p","msg","Nothing on the calendar this week. Nothing is blocking your evening."));
+    return;
+  }
+  var now = Date.now();
+  var ul = el("ul","callist");
+  var shown = 0;
+  for(var i=0;i<CAL.events.length && shown<8;i++){
+    var ev = CAL.events[i];
+    if(ev.end < now) continue;
+    shown++;
+    var li = el("li");
+    var d = new Date(ev.start);
+    var isToday = daysBetween(new Date(), d) === 0;
+    li.appendChild(el("div","ct", (isToday ? "today " : SHORTDAY[d.getDay()]+" ") + (ev.allDay ? "all day" : fmtClock(d))));
+    var cn = el("div","cn");
+    cn.appendChild(document.createTextNode(ev.title));
+    var flagged = S.tasks.filter(function(t){ return !t.due && t._calFlag && t._calFlag.title === ev.title; });
+    if(flagged.length) cn.appendChild(el("span","flag","flags “"+flagged[0].title+"” as a deadline"));
+    else if(isToday && !ev.allDay && ev.end > now) cn.appendChild(el("span","flag","blocks this time tonight"));
+    li.appendChild(cn);
+    ul.appendChild(li);
+  }
+  if(!shown){ host.appendChild(el("p","msg","Nothing left on the calendar today or this week.")); return; }
+  host.appendChild(ul);
+  host.appendChild(el("p","msg","Pulled "+fmtClock(new Date(CAL.at))+". Blocked time is carved out of the plan; matching names flag a deadline. No event becomes a task."));
+}
+
+function fetchCal(retrying){
+  if(!mcp){ CAL.state="error"; CAL.err={code:"not_granted"}; renderCal(); return; }
+  CAL.state = "loading"; renderCal();
+  var now = new Date();
+  var from = new Date(now.getTime() - 2*3600000);
+  var to = new Date(now); to.setDate(to.getDate()+8); to.setHours(23,59,59,0);
+
+  mcp.callTool("Google Calendar","list_events",{
+    startTime: from.toISOString(),
+    endTime: to.toISOString(),
+    orderBy: "startTime",
+    pageSize: 40
+  },{ cache:{ staleTime: 120000, gcTime: 600000, refresh: !!retrying } }).then(function(res){
+    var raw = pickEvents(res && res.payload);
+    var evs = [];
+    for(var i=0;i<raw.length;i++){ var n = normEvent(raw[i]); if(n) evs.push(n); }
+    evs.sort(function(a,b){return a.start-b.start;});
+    CAL.events = evs;
+    CAL.state = "ok";
+    CAL.at = (res && res.cache && res.cache.storedAt) ? res.cache.storedAt : Date.now();
+    CAL.err = null;
+    render(); renderCal();
+  }, function(err){
+    if(err && err.retryable && !retrying){
+      setTimeout(function(){ fetchCal(true); }, (err.retryAfterMs || 1200) + Math.random()*600);
+      return;
+    }
+    CAL.state = "error"; CAL.err = err || {code:"upstream_error"};
+    renderCal();
+  });
+}
+
+/* =========================================================
+   11. OPTIONAL AI — one job, and it is checked 1:1
+   ========================================================= */
+function aiEstimate(){
+  if(!sample || !S.tasks.length) return;
+  var b = $("aiBtn"), m = $("aiMsg");
+  b.disabled = true; m.hidden = false; m.className = "msg"; m.textContent = "Thinking…";
+
+  var list = S.tasks.slice().sort(function(a,b2){return a.ord-b2.ord;});
+  var lines = list.map(function(t,i){ return (i+1)+". "+t.title; }).join("\n");
+  var N = list.length;
+  var today = todayKey();
+
+  var prompt =
+    "Below are "+N+" to-do lines from a high school student, numbered 1 to "+N+". Today is "+today+".\n\n" +
+    "For each line, estimate how many minutes of focused work it takes, and extract a deadline ONLY if the line itself states one.\n\n" +
+    "HARD RULES:\n" +
+    "- Return exactly "+N+" objects, one per input line, same order, with i matching the line number.\n" +
+    "- Do NOT add, remove, merge, split, reword, or suggest any task. You are only filling in two numbers.\n" +
+    "- \"minutes\": an integer between 5 and 180.\n" +
+    "- \"due\": \"YYYY-MM-DD\" only if the line names a day or date. Otherwise null. Never infer a deadline that is not written.\n\n" +
+    "Reply with only a JSON array of {\"i\": number, \"minutes\": number, \"due\": string|null}.\n" +
+    "Example: [{\"i\":1,\"minutes\":35,\"due\":\"2026-09-24\"}]\n\n" + lines;
+
+  sample.json(prompt, { modelTier:"quick" }).then(function(arr){
+    if(!Array.isArray(arr) || arr.length !== N){
+      m.className = "msg err";
+      m.textContent = "That came back with "+(Array.isArray(arr)?arr.length:"no")+" items for a list of "+N+". Discarded — your list is untouched.";
+      b.disabled = false; return;
+    }
+    var seen = {}, ok = true;
+    for(var i=0;i<arr.length;i++){
+      var idx = Number(arr[i] && arr[i].i);
+      if(!(idx >= 1 && idx <= N) || seen[idx]){ ok = false; break; }
+      seen[idx] = arr[i];
+    }
+    if(!ok){
+      m.className = "msg err";
+      m.textContent = "The numbering didn't line up with your list. Discarded — nothing changed.";
+      b.disabled = false; return;
+    }
+    var changed = 0;
+    for(var j=0;j<N;j++){
+      var t = list[j], got = seen[j+1];
+      var mins = Math.round(Number(got.minutes));
+      if(mins >= 5 && mins <= 180 && mins !== t.est){ t.est = mins; t.estGuessed = false; changed++; }
+      if(!t.due && typeof got.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(got.due)){
+        t.due = got.due; t.dueKind = "Due"; t.dueSrc = "ai"; changed++;
+      }
+    }
+    m.className = "msg";
+    m.textContent = changed
+      ? "Filled in "+changed+" estimate"+(changed===1?"":"s")+". Same "+N+" items, same order, same words."
+      : "Nothing to change — your estimates already look right.";
+    b.disabled = false;
+    save(); render();
+  }, function(err){
+    var code = err && err.code;
+    m.className = "msg err";
+    m.textContent =
+      code === "not_granted" || code === "sampling_disabled" ? "Claude isn't available here — estimates stay as you wrote them." :
+      code === "rate_limited" ? "Too many requests just now. Try again in a bit." :
+      code === "invalid_json" ? "The reply wasn't usable. Your list is untouched." :
+      code === "refused" ? "Claude passed on that one. Your list is untouched." :
+      "That didn't come through. Your list is untouched.";
+    if(code === "not_granted" || code === "sampling_disabled" || code === "not_declared") b.hidden = true;
+    else b.disabled = false;
+  });
+}
+
+/* =========================================================
+   12. EXAMPLE EVENING (clearly labelled, replaced on first paste)
+   ========================================================= */
+function seedExample(){
+  var d1 = new Date(); d1.setDate(d1.getDate()+2);
+  var d2 = new Date(); d2.setDate(d2.getDate()+4);
+  S.tasks = [
+    {id:uid(), raw:"Biology ch 4 review", title:"Biology ch 4 review", est:35, estGuessed:false,
+     due:todayKey(d1), dueKind:"Test", dueSrc:"line", status:"pending", actual:null, addedAt:null, ord:0},
+    {id:uid(), raw:"FFA quiz prep", title:"FFA quiz prep", est:45, estGuessed:false,
+     due:todayKey(d2), dueKind:"Quiz", dueSrc:"line", status:"pending", actual:null, addedAt:null, ord:1},
+    {id:uid(), raw:"Push the GitHub project", title:"Push the GitHub project", est:60, estGuessed:false,
+     due:null, dueKind:null, dueSrc:null, status:"pending", actual:null, addedAt:null, ord:2},
+    {id:uid(), raw:"Math pset", title:"Math pset", est:30, estGuessed:true,
+     due:null, dueKind:null, dueSrc:null, status:"pending", actual:null, addedAt:null, ord:3}
+  ];
+  S.isExample = true;
+  S.uploadedAt = null;
+}
+
+/* =========================================================
+   13. WIRING
+   ========================================================= */
+$("themeBtn").addEventListener("click", function(){
+  var r = document.documentElement;
+  var cur = r.getAttribute("data-theme");
+  var next = cur === "dark" ? "light" : cur === "light" ? "dark"
+    : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+  r.setAttribute("data-theme", next);
+  try{ localStorage.setItem("lockedin.theme", next); }catch(e){}
+});
+try{ var th = localStorage.getItem("lockedin.theme"); if(th) document.documentElement.setAttribute("data-theme", th); }catch(e){}
+
+$("editBtn").addEventListener("click", function(){
+  var ed = $("editor");
+  ed.hidden = !ed.hidden;
+  if(!ed.hidden){
+    $("listBox").value = S.isExample ? "" : S.tasks.slice().sort(function(a,b){return a.ord-b.ord;})
+      .map(function(t){ return t.raw; }).join("\n");
+    $("listBox").focus();
+  }
+});
+$("cancelList").addEventListener("click", function(){ $("editor").hidden = true; });
+$("saveList").addEventListener("click", function(){
+  if(commitList($("listBox").value)) $("editor").hidden = true;
+});
+$("egClear").addEventListener("click", function(){
+  S.tasks = []; S.isExample = false; S.uploadedAt = null; S.active = null;
+  save(); render();
+  $("editor").hidden = false; $("listBox").value = ""; $("listBox").focus();
+});
+$("staleNew").addEventListener("click", function(){
+  $("editor").hidden = false;
+  $("listBox").value = S.tasks.slice().sort(function(a,b){return a.ord-b.ord;}).map(function(t){return t.raw;}).join("\n");
+  $("listBox").focus();
+});
+$("addBtn").addEventListener("click", function(){
+  addOne($("addBox").value); $("addBox").value = "";
+});
+$("addBox").addEventListener("keydown", function(e){
+  if(e.key === "Enter"){ addOne($("addBox").value); $("addBox").value = ""; }
+});
+$("calBtn").addEventListener("click", function(){ fetchCal(false); });
+$("aiBtn").addEventListener("click", aiEstimate);
+$("bedBox").addEventListener("change", function(){ S.bedtime = $("bedBox").value || "22:00"; save(); render(); });
+$("estBox").addEventListener("change", function(){
+  S.defaultEst = Math.max(5, Math.min(180, parseInt($("estBox").value,10) || 30));
+  $("estBox").value = S.defaultEst; save(); render();
+});
+
+/* boot: local state first so the page is never blank, then the platform */
+(function boot(){
+  var loaded = false;
+  try{
+    var raw = localStorage.getItem(LS);
+    if(raw){ adopt(JSON.parse(raw)); loaded = S.tasks.length > 0; }
+  }catch(e){}
+  if(!loaded) seedExample();
+  render();
+  // Rebuild on the minute, not every second — a full re-render every tick
+  // would recreate the buttons under the cursor mid-click. Between minutes
+  // only the clock and the running timer are touched.
+  setInterval(function(){
+    var now = new Date();
+    $("clock").textContent = fmtClock(now);
+    if(now.getMinutes() !== lastMin){ render(); return; }
+    if(S.active){
+      var lt = $("liveTimer"), at = byId(S.active.id);
+      if(lt && at){
+        var over = (now - S.active.startedAt)/MIN > at.est;
+        lt.className = "timer" + (over ? " over" : "");
+        lt.textContent = timerText(at, now);
+      }
+    }
+  }, 1000);
+})();
+
+if(window.claude && window.claude.use){
+  window.claude.use("db").then(function(x){
+    if(!x) return;
+    db = x;
+    db.doc("tonight/current").onSnapshot(function(snap){
+      if(!snap.exists) { pushDb(); return; }
+      if(snap.metadata.hasPendingWrites) return;
+      var d = snap.data();
+      if(!d) return;
+      var mineIsExample = S.isExample;
+      adopt(d);
+      if(mineIsExample && !S.isExample) { /* real list arrived from the phone */ }
+      render();
+    }, function(err){
+      $("syncMsg").textContent = err && err.code === "revoked"
+        ? "Sync ended for this session — still saving in this browser."
+        : "Sync unavailable — saving in this browser.";
+    });
+    $("syncMsg").textContent = "Synced · open this same page on your phone to drop tomorrow's list in.";
+  })["catch"](function(){});
+
+  window.claude.use("mcp").then(function(x){
+    if(!x) return;
+    mcp = x;
+    fetchCal(false);
+  })["catch"](function(){});
+
+  window.claude.use("sample").then(function(x){
+    if(!x) return;
+    sample = x;
+    $("aiBtn").hidden = false;
+  })["catch"](function(){});
+}
+})();
+</script>

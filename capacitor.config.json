@@ -1,0 +1,16 @@
+{
+  "appId": "com.elijah.abby",
+  "appName": "Abby",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#13151C",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#E9B44C"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Locked In</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+</head>
+<body class="surface-popup">
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span>Locked In</div>
+    <span class="spacer"></span>
+    <span class="clock" id="clock">--:--</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="brief">
+    <h1 id="hdr">You're Home <span class="t" id="hdrTime"></span></h1>
+    <p class="say" id="say"></p>
+    <div class="runway">
+      <div class="rail" id="rail"></div>
+      <div class="ends"><span id="railStart"></span><span id="railEnd"></span></div>
+    </div>
+  </section>
+
+  <div class="blocks" id="blocks"></div>
+
+  <div style="margin-top:12px">
+    <input type="text" id="addBox" placeholder="Add something to tonight">
+  </div>
+
+  <div class="btnrow">
+    <button class="sm" id="addBtn">Add</button>
+    <span class="spacer"></span>
+    <button class="sm ghost" id="openBtn">Full briefing</button>
+  </div>
+</div>
+
+<script type="module" src="popup.js"></script>
+</body>
+</html>

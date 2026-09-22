@@ -1,0 +1,128 @@
+name: Build Abby for iOS
+
+# You're on Windows and Xcode is Mac-only. GitHub's macOS runners are free
+# for public repos, so this builds the app without you owning a Mac.
+#
+#   unsigned  → always works, no Apple account. Proves it compiles.
+#   signed    → a real .ipa you can install, once the four secrets below exist.
+
+on:
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: "Produce an installable signed .ipa (needs secrets)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - "pwa/**"
+      - "shared/**"
+      - "ios/**"
+      - "capacitor.config.json"
+      - "package.json"
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Test the engine before shipping it
+        run: |
+          node test/engine.test.mjs
+          node test/crypto.test.mjs
+
+      - name: Build the web root
+        run: node tools/build-ios.mjs
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: CocoaPods
+        working-directory: ios/App
+        run: pod install --repo-update
+
+      # ---------- unsigned: always runs, proves it compiles ----------
+      - name: Build (unsigned)
+        if: ${{ inputs.signed != true }}
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      # An unsigned .ipa is just Payload/App.app zipped. Sideloading tools
+      # on Windows re-sign it with your own Apple ID, so this is the format
+      # that can actually reach a phone — a bare .app cannot.
+      - name: Package an installable unsigned .ipa
+        if: ${{ inputs.signed != true }}
+        run: |
+          APP=ios/App/build/Build/Products/Release-iphoneos/App.app
+          if [ ! -d "$APP" ]; then echo "::error::App.app not found — the build step failed"; exit 1; fi
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/App.app
+          cd out && zip -qry Abby-unsigned.ipa Payload && rm -rf Payload
+          ls -lh Abby-unsigned.ipa
+
+      # ---------- signed: a real installable build ----------
+      - name: Import signing certificate
+        if: ${{ inputs.signed == true }}
+        env:
+          CERT_P12: ${{ secrets.IOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          echo "$CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p runner build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p runner build.keychain
+          security import cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k runner build.keychain
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/abby.mobileprovision
+
+      - name: Archive and export
+        if: ${{ inputs.signed == true }}
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        working-directory: ios/App
+        run: |
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Release -sdk iphoneos \
+            -archivePath build/Abby.xcarchive \
+            DEVELOPMENT_TEAM="$TEAM_ID" archive
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>development</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/Abby.xcarchive \
+            -exportOptionsPlist ExportOptions.plist -exportPath ../../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: abby-ios
+          path: out/*
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,21 @@
+{
+  "name": "Locked In",
+  "short_name": "Locked In",
+  "description": "Throw it in from your phone; your PC knows what you should be doing when you sit down.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#13151C",
+  "theme_color": "#13151C",
+  "categories": ["productivity", "education"],
+  "icons": [
+    { "src": "icons/icon192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Capture", "short_name": "Capture", "url": "./index.html#capture" },
+    { "name": "Right now", "short_name": "Now", "url": "./index.html#now" }
+  ]
+}

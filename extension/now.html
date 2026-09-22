@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locked In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400&display=swap">
+<link rel="stylesheet" href="../shared/ui.css">
+</head>
+<body class="surface-now">
+
+<div class="nowbar">
+  <div class="brand"><span class="dot"></span>Locked In</div>
+  <span class="chip" id="homeChip" hidden>welcome home</span>
+  <span class="spacer"></span>
+  <span class="clock" id="clock">--:--</span>
+  <button class="sm ghost" id="fullBtn">Full briefing</button>
+</div>
+
+<div id="remAlert" hidden></div>
+
+<main class="nowpage">
+  <p class="eyebrow" id="eyebrow">Right now</p>
+  <h1 class="nowtask" id="task">&nbsp;</h1>
+  <p class="nowdur" id="dur"></p>
+  <p class="nowwhy" id="why"></p>
+
+  <div class="nowthen" id="then" hidden>
+    <dl>
+      <div>
+        <p class="lbl">Then</p>
+        <p class="val" id="then1"></p>
+      </div>
+      <div id="then2wrap">
+        <p class="lbl">After that</p>
+        <p class="val" id="then2"></p>
+      </div>
+    </dl>
+  </div>
+
+  <div class="nowfoot">
+    <div class="nowleft" id="left">—<small>remaining</small></div>
+    <span class="spacer"></span>
+    <button class="go nowbtn" id="primary" hidden></button>
+    <button class="ghost nowbtn" id="secondary" hidden></button>
+  </div>
+</main>
+
+<script type="module" src="now.js"></script>
+</body>
+</html>
