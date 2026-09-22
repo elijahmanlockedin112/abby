@@ -3,27 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Locked In</title>
-<meta name="description" content="Throw it in from your phone; your PC knows what you should be doing when you sit down.">
+<title>Abby</title>
+<meta name="description" content="Snap your list. Abby sorts it.">
 
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#EEF0F4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#13151C" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Locked In">
+<meta name="apple-mobile-web-app-title" content="Abby">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="icons/icon180.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="../shared/ui.css">
 
+<style>
+/* ---------------------------------------------------------------------
+   The simple phone. One screen: snap, then tick things off.
+   --------------------------------------------------------------------- */
+body{padding-bottom:0}
+.app{max-width:560px;margin:0 auto;padding:0 18px 40px}
+
+.hdr{display:flex;align-items:center;gap:10px;padding:16px 0 4px}
+.hdr .nm{font-size:19px;font-weight:800;letter-spacing:-.03em}
+.hdr .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.hdr .t{margin-left:auto;font-family:var(--f-mono);font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.hdr button{padding:5px 9px;font-size:12px}
+
+.snap{
+  width:100%;margin:14px 0 6px;padding:22px 18px;border-radius:16px;
+  background:var(--accent);border:none;color:#1B1405;
+  font-size:19px;font-weight:800;letter-spacing:-.02em;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:11px;
+  box-shadow:0 6px 20px -8px var(--accent);
+}
+.snap:active{transform:scale(.985)}
+.snap svg{width:24px;height:24px;flex:none}
+.snap[disabled]{opacity:.6}
+.snapalt{display:flex;gap:8px;margin-bottom:6px}
+.snapalt button{flex:1 1 0;font-size:13px;padding:9px;background:transparent;border-color:var(--line)}
+
+.left{
+  font-family:var(--f-mono);font-size:13px;color:var(--ink-3);
+  padding:10px 0 4px;font-variant-numeric:tabular-nums;
+}
+.left b{color:var(--ink-2);font-weight:600}
+
+.said{
+  font-size:15px;line-height:1.5;color:var(--accent-ink);
+  background:var(--accent-soft);border:1px solid var(--accent-edge);
+  border-radius:12px;padding:12px 14px;margin:10px 0 0;
+}
+.said.bad{color:var(--crit);background:var(--crit-soft);border-color:color-mix(in srgb,var(--crit) 35%,transparent)}
+.said.busy{color:var(--ink-3);background:var(--surface-2);border-color:var(--line)}
+
+.grp{margin-top:26px}
+.grp h2{
+  font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 8px;display:flex;align-items:center;gap:8px;
+}
+.grp h2 .n{margin-left:auto;color:var(--ink-3)}
+
+.chk{list-style:none;margin:0;padding:0}
+.chk li{
+  display:flex;align-items:flex-start;gap:13px;padding:14px 2px;
+  border-bottom:1px solid var(--line);
+}
+.chk li:last-child{border-bottom:0}
+.box{
+  width:24px;height:24px;border-radius:50%;border:2px solid var(--line-strong);
+  flex:none;margin-top:1px;cursor:pointer;position:relative;background:transparent;padding:0;
+  transition:background .12s ease,border-color .12s ease;
+}
+.box:active{transform:scale(.92)}
+.box.on{background:var(--good);border-color:var(--good)}
+.box.on::after{
+  content:"";position:absolute;left:7px;top:3px;width:6px;height:11px;
+  border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg);
+}
+.who{flex:1 1 auto;min-width:0}
+.who .ttl{font-size:16.5px;line-height:1.35;font-weight:600;overflow-wrap:anywhere}
+.who .sub{
+  display:flex;gap:9px;flex-wrap:wrap;margin-top:4px;
+  font-family:var(--f-mono);font-size:11.5px;color:var(--ink-3);
+}
+.who .sub .due{color:var(--accent-ink)}
+.who .sub .soon{color:var(--crit)}
+li.done .ttl{text-decoration:line-through;color:var(--ink-3);font-weight:500}
+li.done .sub{opacity:.6}
+.x{
+  flex:none;background:transparent;border:0;color:var(--ink-3);font-size:17px;
+  padding:2px 6px;cursor:pointer;line-height:1;
+}
+.x:hover{color:var(--crit);background:transparent}
+
+.none{font-size:15px;color:var(--ink-3);padding:18px 0;line-height:1.5}
+.allgood{
+  text-align:center;padding:34px 18px;
+}
+.allgood .big{font-size:22px;font-weight:800;letter-spacing:-.025em;margin:0 0 6px}
+.allgood .sm{font-size:15px;color:var(--ink-3);margin:0}
+
+.addrow{display:flex;gap:8px;margin-top:20px}
+.addrow input{flex:1 1 auto;font-size:16px}
+.addrow button{flex:none;padding:9px 14px}
+
+.more{margin-top:34px;border-top:1px solid var(--line);padding-top:16px}
+.more summary{
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);cursor:pointer;list-style:none;padding:4px 0;
+}
+.more summary::-webkit-details-marker{display:none}
+.more summary::before{content:"⚙  "}
+.more .body{padding-top:12px}
+.more label.fld{margin-top:12px}
+.more .note{font-size:13px;line-height:1.5;color:var(--ink-3);margin:8px 0 0}
+</style>
+
 <script>
-/* Boot watchdog — a classic script, so it parses even when a module doesn't.
-   A SyntaxError in one ES module silently kills every module that imports it,
-   and the app just sits there doing nothing. That is never acceptable: if
-   Abby can't start, she says so and says why. */
+/* A classic script, so it parses even when a module doesn't. If Abby can't
+   start she says so on screen — never a dead page with no explanation. */
 (function () {
   var shown = false;
   function fatal(title, detail) {
@@ -34,12 +135,11 @@
     el.hidden = false;
     el.querySelector(".ft").textContent = title;
     el.querySelector(".fd").textContent = detail || "";
-    var app = document.querySelector(".wrap");
+    var app = document.querySelector(".app");
     if (app) app.style.display = "none";
   }
   window.__abbyFatal = fatal;
 
-  // Capture phase catches script/resource load failures too, not just throws.
   window.addEventListener("error", function (e) {
     if (e && e.target && e.target.tagName === "SCRIPT") {
       fatal("A script didn't load.", (e.target.src || "") + " — check your connection and reopen.");
@@ -54,22 +154,20 @@
     fatal("Abby hit an error starting up.", (r && (r.message || r)) + "");
   });
 
-  // If nothing has signalled a successful boot, something failed quietly.
   setTimeout(function () {
     if (!window.__abbyBooted) {
       fatal("Abby didn't finish starting.",
-        "The page loaded but the app never came up. This is usually a script that failed to parse. " +
-        "iOS version: " + navigator.userAgent);
+        "The page loaded but the app never came up.\n" + navigator.userAgent);
     }
   }, 9000);
 })();
 </script>
 </head>
-<body class="surface-pwa">
+<body>
 
-<div id="fatal" hidden style="max-width:620px;margin:0 auto;padding:28px 18px">
+<div id="fatal" hidden style="max-width:560px;margin:0 auto;padding:28px 18px">
   <p style="font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--crit);margin:0 0 10px">Couldn't start</p>
-  <h1 class="ft" style="font-size:24px;font-weight:800;letter-spacing:-.03em;margin:0 0 10px"></h1>
+  <h1 class="ft" style="font-size:23px;font-weight:800;letter-spacing:-.03em;margin:0 0 10px"></h1>
   <pre class="fd" style="font-family:var(--f-mono);font-size:12px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:0"></pre>
   <div class="btnrow">
     <button onclick="location.reload()">Reload</button>
@@ -77,251 +175,78 @@
   </div>
 </div>
 
-<div class="topbar">
-  <div class="inner">
-    <div class="brand"><span class="dot"></span>Locked In</div>
-    <span class="chip" id="syncChip" hidden></span>
-    <span class="spacer"></span>
-    <span class="clock" id="clock">--:--</span>
-    <button class="sm ghost" id="themeBtn">Theme</button>
-  </div>
-</div>
+<div class="app">
 
-<div class="wrap" style="padding-block:14px 0">
-
-  <div class="tabs" role="tablist">
-    <button id="tabNow" role="tab" aria-selected="true">Now</button>
-    <button id="tabCapture" role="tab" aria-selected="false">Capture <span class="chip" id="inboxCount" hidden></span></button>
-    <button id="tabPlan" role="tab" aria-selected="false">Plan</button>
-    <button id="tabSetup" role="tab" aria-selected="false">Setup</button>
+  <div class="hdr">
+    <span class="dot"></span>
+    <span class="nm">Abby</span>
+    <span class="t" id="clock">--:--</span>
   </div>
 
-  <!-- ========================================================== NOW -->
-  <section id="viewNow" role="tabpanel">
-    <div id="remAlert" hidden></div>
-    <div style="padding:8px 0 18px">
-      <p class="eyebrow" id="eyebrow">Right now</p>
-      <h1 class="nowtask" id="nowTask" style="font-size:clamp(28px,8vw,40px)">&nbsp;</h1>
-      <p class="nowdur" id="nowDur"></p>
-      <p class="nowwhy" id="nowWhy"></p>
+  <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+  <input type="file" id="fileInput" accept="image/*,.pdf,.txt" hidden>
 
-      <div class="nowthen" id="nowThen" hidden style="margin-top:26px;padding-top:16px">
-        <dl>
-          <div><p class="lbl">Then</p><p class="val" id="then1"></p></div>
-          <div id="then2wrap"><p class="lbl">After that</p><p class="val" id="then2"></p></div>
-        </dl>
-      </div>
+  <button class="snap" id="snapBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+      <circle cx="12" cy="13" r="4"></circle>
+    </svg>
+    Snap your list
+  </button>
 
-      <div class="nowfoot" style="margin-top:26px;padding-top:16px">
-        <div class="nowleft" id="nowLeft" style="font-size:24px">—<small>remaining</small></div>
-      </div>
+  <div class="snapalt">
+    <button id="pickBtn">Choose a photo</button>
+    <button id="typeBtn">Type it</button>
+  </div>
+
+  <p class="left" id="left"></p>
+  <p class="said" id="said" hidden></p>
+
+  <div id="typeBox" hidden style="margin-top:12px">
+    <textarea id="listBox" rows="5" placeholder="One per line…" style="font-size:16px"></textarea>
+    <div class="btnrow">
+      <button class="go" id="typeSave">Add these</button>
+      <button class="ghost" id="typeCancel">Cancel</button>
     </div>
+  </div>
 
-    <div class="panel askwrap">
-      <h3>Ask</h3>
-      <div class="askrow">
-        <input type="text" id="askBox" placeholder="What did I leave unfinished yesterday?">
-        <button class="go" id="askBtn">Ask</button>
-      </div>
-      <div class="chips" id="askChips"></div>
-      <div class="answer" id="askOut" hidden></div>
-    </div>
-  </section>
+  <div id="list"></div>
 
-  <!-- ====================================================== CAPTURE -->
-  <section id="viewCapture" role="tabpanel" hidden>
-    <div class="panel">
-      <h3>Say tonight's list</h3>
-      <p class="sub">Walking out of class, just talk. It splits into lines with the times filled in — you check them, then send.</p>
-      <div class="voicebox" id="vbox">
-        <p class="vtranscript" id="vtext"></p>
-        <div class="btnrow" style="margin-top:0">
-          <button class="go wide" id="micBtn" data-label="Speak your list">Speak your list</button>
-        </div>
-        <div class="btnrow"><button class="ghost sm" id="micClear" hidden>Clear</button></div>
-      </div>
-      <div class="result" id="micResult" hidden></div>
-      <ul class="vlines" id="vlines"></ul>
-    </div>
+  <div class="addrow">
+    <input type="text" id="addBox" placeholder="Add one thing…">
+    <button id="addBtn">Add</button>
+  </div>
 
-    <div class="panel">
-      <h3>Or type it</h3>
-      <p class="sub">One task per line. This is the whole list — your PC orders it and never adds to it.</p>
-      <textarea id="listBox" spellcheck="false" placeholder="Biology ch 4 review — test Thursday (35m)&#10;FFA quiz prep 45m&#10;Finish GitHub project 1h&#10;Math pset"></textarea>
-      <p class="sub" style="margin:8px 0 0">
-        Optional: <code class="k">35m</code> / <code class="k">1h</code> sets the estimate,
-        <code class="k">due Fri</code> / <code class="k">test Thursday</code> / <code class="k">9/25</code> sets a deadline.
-      </p>
-      <div class="btnrow"><button class="go wide" id="sendBtn">Send to tonight</button></div>
-      <p class="msg" id="sendMsg" style="margin-top:10px" hidden></p>
-    </div>
-
-    <div class="panel">
-      <h3>Remind me</h3>
-      <p class="sub">Dated things, not evening work. “cancel spotify subscription on November 30”.</p>
-      <input type="text" id="remBox" placeholder="cancel spotify subscription on November 30">
-      <div class="btnrow"><button class="sm go wide" id="remBtn">Set reminder</button></div>
-      <p class="msg" id="remMsg" style="margin-top:9px" hidden></p>
-      <div style="margin-top:14px" id="remList"></div>
-      <p class="notifstate" id="notifState"></p>
-      <div class="btnrow"><button class="sm" id="notifBtn" hidden>Turn on notifications</button></div>
-    </div>
-
-    <div class="panel">
-      <h3>Throw something in</h3>
-      <p class="sub">A photo of the board, an assignment PDF, a thought on the bus. It becomes candidates you accept — never a task on its own.</p>
-
-      <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
-      <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md" multiple hidden>
-
-      <div class="btnrow" style="margin-top:0">
-        <button class="go wide" id="camBtn">Take a photo</button>
-      </div>
-      <div class="btnrow">
-        <button class="sm" id="pickBtn">Choose a file</button>
-      </div>
-
-      <label class="fld" for="noteBox" style="margin-top:14px">Or just type it</label>
-      <textarea id="noteBox" spellcheck="false" style="min-height:88px" placeholder="Paste an assignment page, or dictate with the mic on your keyboard…"></textarea>
-      <div class="btnrow"><button class="sm wide" id="noteBtn">Capture</button></div>
-      <p class="msg" id="capMsg" style="margin-top:10px" hidden></p>
-    </div>
-
-    <div class="panel">
-      <h3>Inbox</h3>
-      <p class="sub">Accept what's real. Dismiss the rest. Nothing here is on your list yet.</p>
-      <div id="inboxList"></div>
-    </div>
-
-    <div class="panel">
-      <h3>What's committed</h3>
-      <div class="ledger" id="ledger"></div>
-      <ul class="srclist" id="srclist"></ul>
-      <div class="btnrow">
-        <button class="sm ghost" id="pullBtn">Pull latest</button>
-        <button class="sm ghost" id="loadBtn">Load into the box</button>
-      </div>
-      <label class="fld" for="addBox" style="margin-top:14px">Add one thing</label>
-      <input type="text" id="addBox" placeholder="Doesn't replace the list — appends">
-      <div class="btnrow"><button class="sm wide" id="addBtn">Add &amp; replan</button></div>
-    </div>
-  </section>
-
-  <!-- ========================================================= PLAN -->
-  <section id="viewPlan" role="tabpanel" hidden>
-    <section class="brief" style="padding-block:4px 14px">
-      <h1 id="hdr">You're Home <span class="t" id="hdrTime"></span></h1>
-      <p class="say" id="say"></p>
-      <div class="runway">
-        <div class="rail" id="rail"></div>
-        <div class="ends"><span id="railStart"></span><span id="railEnd"></span></div>
-      </div>
-    </section>
-
-    <div class="sechead"><h2>Tonight, in order</h2><span class="note" id="planNote"></span></div>
-    <div class="blocks" id="blocks"></div>
-    <div id="spill"></div>
-
-    <div class="sechead" style="margin-top:26px"><h2>Future Me</h2></div>
-    <div id="goalList"></div>
-    <div class="panel" style="margin-top:12px">
-      <h3>Set a target</h3>
-      <label class="fld" for="gTitle">What</label>
-      <input type="text" id="gTitle" placeholder="Finish FFA prep">
-      <div class="fldrow" style="margin-top:11px">
-        <div>
-          <label class="fld" for="gDate">By</label>
-          <input type="date" id="gDate" style="font-family:var(--f-display);font-size:16px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:7px;padding:9px 10px;width:100%">
-        </div>
-        <div>
-          <label class="fld" for="gHours">Hours</label>
-          <input type="number" id="gHours" min="0.5" max="200" step="0.5" value="6">
-        </div>
-      </div>
-      <div class="btnrow"><button class="sm wide" id="gAdd">Add goal</button></div>
-    </div>
-
-    <div class="rules">
-      <h2>How the order is decided</h2>
-      <ol id="rulesList"></ol>
-    </div>
-  </section>
-
-  <!-- ======================================================== SETUP -->
-  <section id="viewSetup" role="tabpanel" hidden>
-    <div class="panel">
-      <h3>Tonight</h3>
+  <details class="more">
+    <summary>Settings</summary>
+    <div class="body">
       <div class="fldrow">
         <div>
           <label class="fld" for="bedBox">Bedtime</label>
-          <input type="time" id="bedBox" value="22:00">
+          <input type="time" id="bedBox" value="21:00">
         </div>
         <div>
-          <label class="fld" for="estBox">Default estimate</label>
-          <input type="number" id="estBox" min="5" max="180" step="5" value="30">
+          <label class="fld" for="nameBox">Your name</label>
+          <input type="text" id="nameBox" placeholder="Elijah">
         </div>
       </div>
-    </div>
 
-    <div class="panel">
-      <h3>Sync with your PC</h3>
-      <p class="sub">The same two values you put in the Chrome extension's options. Without them this phone keeps its own copy and nothing crosses over.</p>
-      <label class="fld" for="cloudUrl">Database URL</label>
-      <input type="url" id="cloudUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://your-project-default-rtdb.firebaseio.com">
-      <label class="fld" for="cloudKey" style="margin-top:11px">Shared key</label>
-      <input type="text" id="cloudKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="the same key as the extension">
-      <div class="btnrow">
-        <button class="sm" id="saveCfg">Save</button>
-        <button class="sm ghost" id="testCloud">Test</button>
-      </div>
-      <p class="msg" id="cfgMsg" style="margin-top:9px"></p>
-    </div>
-
-    <div class="panel">
-      <h3>The thinking</h3>
-      <p class="sub">Optional. Needed to read photos and screenshots — there's no OCR on the phone. Stored on this phone only; it is never synced, so add it here separately from your PC.</p>
-      <div class="pick">
-        <label id="provOpenaiL">
-          <input type="radio" name="prov" id="provOpenai" value="openai" checked>
-          <span class="pt">OpenAI</span><span class="ps">GPT-5.1</span>
-        </label>
-        <label id="provAnthropicL">
-          <input type="radio" name="prov" id="provAnthropic" value="anthropic">
-          <span class="pt">Anthropic</span><span class="ps">Claude</span>
-        </label>
-      </div>
-      <label class="fld" for="apiKey" style="margin-top:12px">API key</label>
+      <label class="fld" for="apiKey" style="margin-top:14px">OpenAI key <span style="text-transform:none;letter-spacing:0;font-weight:400">— needed to read photos</span></label>
       <input type="password" id="apiKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-proj-…">
-      <label class="fld" for="model" style="margin-top:11px">Model</label>
-      <input type="text" id="model" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="gpt-5.1">
+
+      <label class="fld" for="cloudUrl" style="margin-top:14px">Sync — database URL</label>
+      <input type="url" id="cloudUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…firebaseio.com">
+      <label class="fld" for="cloudKey" style="margin-top:10px">Sync — shared key</label>
+      <input type="text" id="cloudKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="same as your PC">
+
       <div class="btnrow">
-        <button class="sm" id="saveKey">Save</button>
-        <button class="sm ghost" id="testKey">Test</button>
+        <button class="go" id="saveBtn">Save</button>
+        <button class="ghost" id="notifBtn">Notifications</button>
       </div>
-      <p class="msg" id="keyMsg" style="margin-top:9px"></p>
+      <p class="note" id="noteMsg"></p>
+      <p class="note" id="syncNote"></p>
     </div>
-
-    <div class="panel">
-      <h3>Calendar feed</h3>
-      <p class="sub">Optional. The secret .ics address from Calendar settings — it carves blocked time out of the evening.</p>
-      <label class="fld" for="icsUrl">Secret .ics address</label>
-      <input type="url" id="icsUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
-      <div class="btnrow"><button class="sm" id="saveIcs">Save</button></div>
-    </div>
-
-    <div class="panel">
-      <h3>Put it on your Home Screen</h3>
-      <p class="sub">
-        Safari → the Share button → <b>Add to Home Screen</b>. It opens full screen with no browser bar,
-        works with no signal, and sits one tap from your lock screen — which is the point, since you're
-        doing this at 3:00 walking out of class.
-      </p>
-    </div>
-  </section>
-</div>
-
-<div class="stickybar" id="stickybar" hidden>
-  <button class="go" id="stickyPrimary">Send to tonight</button>
+  </details>
 </div>
 
 <script type="module" src="app.js"></script>

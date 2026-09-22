@@ -254,7 +254,7 @@ export function calBusy(events, from, to) {
 /* -------------------------------------------------------------- engine */
 
 export function bedtimeAt(state, now) {
-  const [hh, mm] = (state.bedtime || "22:00").split(":");
+  const [hh, mm] = (state.bedtime || "21:00").split(":");
   const b = new Date(now);
   b.setHours(parseInt(hh, 10) || 22, parseInt(mm, 10) || 0, 0, 0);
   return b;
@@ -453,7 +453,7 @@ export function emptyState() {
     calAt: 0,
     goals: [],      // Future Me targets
     log: [],        // finished sessions, for history questions and pace
-    bedtime: "22:00",
+    bedtime: "21:00",
     homeBy: "15:30",
     defaultEst: 30,
     uploadedAt: null,

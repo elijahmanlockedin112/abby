@@ -1,629 +1,410 @@
 /* =====================================================================
-   Locked In — the phone.
+   Abby — the phone. One screen.
 
-   What a phone is actually for here:
-     3:00, walking out of class   -> Capture
-     any time you wonder          -> Now
-     checking the shape of it     -> Plan
+   Snap your list. She sorts it. You tick things off.
+
+   Everything clever lives in ../shared/. This file is only the surface,
+   deliberately: the previous version had four tabs and nine panels, and
+   the thing you actually do at 3pm was three taps deep.
    ===================================================================== */
 
 import {
   MIN, SHORTDAY, fmtClock, fmtDur, todayKey, daysBetween,
-  parseList, makeTask, buildPlan, stripBullet, effectiveDue
+  makeTask, bedtimeAt, stripBullet, logFinish
 } from "../shared/engine.js";
-import * as E from "../shared/engine.js";
-import { openStore, cloudGet, cloudStatusText } from "../shared/sync.js";
-import { fetchCalendar } from "../shared/ics.js";
-import { makeAI, PROVIDERS } from "../shared/ai.js";
-import {
-  makeCapture, extractDeterministic, extractWithModel, mergeCandidates,
-  readImage, readPDF, pdfReasonText
-} from "../shared/inbox.js";
-import { makeGoal } from "../shared/goals.js";
-import { parseReminder, whenWord, standing, overdueNote } from "../shared/reminders.js";
-import * as A from "../shared/abby.js";
+import { openStore } from "../shared/sync.js";
+import { makeAI } from "../shared/ai.js";
+import { readImage, readPDF, pdfReasonText } from "../shared/inbox.js";
+import { triage, triageSummary } from "../shared/triage.js";
+import { parseReminder, whenWord, fireAt, overdueNote } from "../shared/reminders.js";
 import {
   isNative, syncNotifications, flushOverdue, onNotificationTap,
-  onResume, askNotifications, notificationsAllowed, haptic
+  onResume, askNotifications, haptic
 } from "../shared/native.js";
 
-/* A phone browser can only notify while the page is alive. The extension's
-   background worker is what fires when nothing is open — see background.js.
-   Fire once per reminder per session; the extension owns `firedAt`. */
-const notified = new Set();
-function notifyDue(state, now) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-  for (const r of standing(state, now)) {
-    if (notified.has(r.id)) continue;
-    notified.add(r.id);
-    try {
-      new Notification(r.text, {
-        body: overdueNote(r, now) || `Due ${whenWord(r, now)}.`,
-        tag: "lockedin-" + r.id
-      });
-    } catch { /* blocked or unsupported — the in-app alert still shows it */ }
-  }
-}
-import {
-  $, renderBriefing, renderRail, renderBlocks, renderSpill, renderLedger,
-  renderSource, renderInbox, renderGoals, wireAsk, makeVoicePanel,
-  renderReminders, renderReminderAlert, wireNotifyPermission,
-  initTheme, RULES_HTML
-} from "../shared/ui.js";
+let store = null, ai = null, lastMin = -1;
 
-let store = null, ai = null, events = [], lastMin = -1, tab = "now";
-let lastAck = null;
+const $ = id => document.getElementById(id);
 const who = () => (store && store.config && store.config.name || "").trim();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-const ctx = () => ({ state: store.state, now: new Date(), events, ai });
+function say(text, tone) {
+  const el = $("said");
+  if (!text) { el.hidden = true; return; }
+  el.hidden = false;
+  el.className = "said" + (tone ? " " + tone : "");
+  el.textContent = text;
+}
 
 /* --------------------------------------------------------------- render */
 
 function render() {
   const now = new Date();
   lastMin = now.getMinutes();
-  const state = store.state;
-  const plan = buildPlan(state, now, events);
+  const s = store.state;
 
   $("clock").textContent = fmtClock(now);
-  renderNow(state, now, plan);
 
-  renderBriefing({ hdr: $("hdr"), hdrTime: $("hdrTime"), say: $("say") }, state, now, plan, false);
-  renderRail($("rail"), $("railStart"), $("railEnd"), state, now, plan);
-  renderBlocks($("blocks"), state, now, plan, handlers, { emptyHint: "Nothing sent yet today." });
-  renderSpill($("spill"), plan);
-  renderLedger($("ledger"), state, plan);
-  renderSource($("srclist"), state);
-  renderInbox($("inboxList"), state, inboxHandlers);
-  renderGoals($("goalList"), state, now, events, goalHandlers);
-  renderReminders($("remList"), state, now, remHandlers);
-  renderReminderAlert($("remAlert"), state, now, remHandlers);
-  notifyDue(state, now);
+  const bed = bedtimeAt(s, now);
+  const left = (bed - now) / MIN;
+  const open = s.tasks.filter(t => t.status === "pending").length;
 
-  const open = (state.inbox || []).filter(c => c.status !== "dismissed" && (c.candidates || []).some(x => !x.accepted)).length;
-  $("inboxCount").hidden = !open;
-  $("inboxCount").textContent = String(open);
-  $("inboxCount").className = "chip acc";
+  $("left").innerHTML = left > 0
+    ? `<b>${fmtDur(left)}</b> until bed at ${fmtClock(bed)}${open ? ` · ${open} left` : ""}`
+    : `Past bed (${fmtClock(bed)})`;
 
+  renderList(s, now);
+  renderSync();
+}
+
+function renderList(s, now) {
+  const host = $("list");
+  host.textContent = "";
+
+  const tasks = [...s.tasks].sort((a, b) => {
+    const ap = a.status === "pending", bp = b.status === "pending";
+    if (ap !== bp) return ap ? -1 : 1;
+    return a.ord - b.ord;
+  });
+  const rems = (s.reminders || []).filter(r => !r.done).sort((a, b) => fireAt(a) - fireAt(b));
+
+  if (!tasks.length && !rems.length) {
+    const d = document.createElement("div");
+    d.className = "allgood";
+    d.innerHTML = `<p class="big">Nothing yet${who() ? ", " + esc(who()) : ""}.</p>
+      <p class="sm">Snap a photo of your list and I'll sort it out.</p>`;
+    host.appendChild(d);
+    return;
+  }
+
+  if (tasks.length) {
+    const done = tasks.filter(t => t.status !== "pending").length;
+    host.appendChild(group("Tonight", `${done}/${tasks.length}`, tasks.map(t => taskRow(t, now))));
+  }
+  if (rems.length) {
+    host.appendChild(group("Don't forget", "", rems.map(r => remRow(r, now))));
+  }
+}
+
+function group(title, count, rows) {
+  const g = document.createElement("div");
+  g.className = "grp";
+  const h = document.createElement("h2");
+  h.textContent = title;
+  if (count) {
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = count;
+    h.appendChild(n);
+  }
+  g.appendChild(h);
+  const ul = document.createElement("ul");
+  ul.className = "chk";
+  for (const r of rows) ul.appendChild(r);
+  g.appendChild(ul);
+  return g;
+}
+
+function row({ done, title, bits, onToggle, onDelete }) {
+  const li = document.createElement("li");
+  if (done) li.className = "done";
+
+  const box = document.createElement("button");
+  box.className = "box" + (done ? " on" : "");
+  box.setAttribute("aria-label", done ? "Mark not done" : "Mark done");
+  box.addEventListener("click", onToggle);
+  li.appendChild(box);
+
+  const w = document.createElement("div");
+  w.className = "who";
+  const t = document.createElement("div");
+  t.className = "ttl";
+  t.textContent = title;
+  w.appendChild(t);
+  if (bits && bits.length) {
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    for (const b of bits) {
+      const sp = document.createElement("span");
+      if (b.cls) sp.className = b.cls;
+      sp.textContent = b.text;
+      sub.appendChild(sp);
+    }
+    w.appendChild(sub);
+  }
+  li.appendChild(w);
+
+  const x = document.createElement("button");
+  x.className = "x";
+  x.textContent = "×";
+  x.setAttribute("aria-label", "Remove");
+  x.addEventListener("click", onDelete);
+  li.appendChild(x);
+  return li;
+}
+
+function taskRow(t, now) {
+  const bits = [{ text: fmtDur(t.est) }];
+  if (t.due) {
+    const dd = new Date(t.due + "T00:00:00");
+    const d = daysBetween(now, dd);
+    bits.push({
+      text: d <= 0 ? "today" : d === 1 ? "tomorrow" : SHORTDAY[dd.getDay()],
+      cls: d <= 1 ? "soon" : "due"
+    });
+  }
+  return row({
+    done: t.status !== "pending",
+    title: t.title,
+    bits,
+    onToggle: () => toggleTask(t.id),
+    onDelete: () => deleteTask(t.id)
+  });
+}
+
+function remRow(r, now) {
+  const late = overdueNote(r, now);
+  return row({
+    done: false,
+    title: r.text,
+    bits: [{ text: whenWord(r, now), cls: late ? "soon" : "due" }],
+    onToggle: () => doneReminder(r.id),
+    onDelete: () => deleteReminder(r.id)
+  });
+}
+
+function renderSync() {
+  const c = store.config;
+  const note = $("syncNote");
+  const on = !!(c.cloudUrl && c.cloudKey);
   const st = store.status;
-  $("syncChip").hidden = st.cloud === "off";
-  $("syncChip").textContent = st.cloud === "ok" ? "synced" : st.cloud === "pending" ? "…" : "sync error";
-  $("syncChip").className = "chip " + (st.cloud === "ok" ? "ok" : st.cloud === "error" ? "crit" : "");
 
-  $("planNote").textContent = plan.segs.some(s => s.type === "task") ? `rebuilt from ${fmtClock(now)}` : "";
-}
-
-/** The same RIGHT NOW logic as the extension, sized for a thumb. */
-function renderNow(state, now, plan) {
-  const leftMin = (plan.end - now) / MIN;
-  $("nowLeft").innerHTML = leftMin > 0
-    ? `${fmtDur(leftMin)}<small>until bedtime</small>`
-    : `—<small>past bedtime</small>`;
-
-  const set = (eyebrow, task, dur, why) => {
-    $("eyebrow").textContent = eyebrow;
-    $("nowTask").textContent = task;
-    $("nowDur").textContent = dur;
-    $("nowWhy").textContent = why;
-  };
-
-  if (!state.tasks.length) {
-    set("Right now", "Nothing on tonight's list.", "", "Send it over on the Capture tab.");
-    $("nowThen").hidden = true;
+  if (!on) {
+    note.innerHTML = "<b>Not linked to your PC.</b> Paste the same database URL and key you used on the computer — without them this phone keeps a separate list.";
+    note.style.color = "var(--warn)";
     return;
   }
-  if (leftMin <= 0) {
-    const pend = state.tasks.filter(t => t.status === "pending").length;
-    set("Past bedtime", pend ? "Call it." : "You're done.", "",
-      pend ? `${pend} item${pend === 1 ? "" : "s"} roll to tomorrow.` : "The list is clear.");
-    $("nowThen").hidden = true;
+  if (st.cloud === "error") {
+    note.textContent = st.msg || "Sync error.";
+    note.style.color = "var(--crit)";
     return;
   }
-
-  const active = state.active && state.tasks.find(t => t.id === state.active.id);
-  if (active && active.status === "pending") {
-    const elapsed = (now - state.active.startedAt) / MIN;
-    const over = elapsed > active.est;
-    set(over ? "Running over" : "In session", active.title,
-      over ? `${fmtDur(elapsed - active.est)} past ${fmtDur(active.est)}` : `${fmtDur(active.est - elapsed)} left`,
-      `Started ${fmtClock(new Date(state.active.startedAt))}.`);
-    $("nowDur").style.color = over ? "var(--warn)" : "";
-    renderThen(plan, 0);
-    return;
-  }
-
-  const busyNow = plan.segs.find(s => s.type === "busy" && s.s <= now.getTime() && s.e > now.getTime());
-  if (busyNow) {
-    set("Right now", busyNow.title, `until ${fmtClock(new Date(busyNow.e))}`, "From your calendar.");
-    $("nowDur").style.color = "";
-    renderThen(plan, -1);
-    return;
-  }
-
-  const tasks = plan.segs.filter(s => s.type === "task");
-  if (!tasks.length) {
-    set("Right now", "You're done for today.", "",
-      plan.spill.length ? `${plan.spill.length} didn't fit before bedtime.` : "Everything on the list is finished.");
-    $("nowThen").hidden = true;
-    return;
-  }
-
-  const t = tasks[0].task;
-  const due = effectiveDue(t);
-  set("Right now", t.title, fmtDur(t.est),
-    due ? `${t.dueKind || "Due"} ${daysBetween(now, due) <= 0 ? "today" : daysBetween(now, due) === 1 ? "tomorrow" : SHORTDAY[due.getDay()]}. Nearest deadline on your list.`
-        : `No deadline on this one — it's #${t.ord + 1} in the order you wrote.`);
-  $("nowDur").style.color = "";
-  renderThen(plan, 0);
-}
-
-function renderThen(plan, skip) {
-  const rest = plan.segs.filter(s => s.type === "task").slice(skip + 1);
-  $("nowThen").hidden = false;
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  if (!rest.length) {
-    $("then1").textContent = "You're done for today.";
-    $("then2wrap").hidden = true;
-    return;
-  }
-  $("then1").innerHTML = `${esc(rest[0].task.title)}<span class="m">${fmtDur(rest[0].task.est)}</span>`;
-  $("then2wrap").hidden = false;
-  $("then2").innerHTML = rest.length > 1
-    ? `${esc(rest[1].task.title)}<span class="m">${fmtDur(rest[1].task.est)}</span>`
-    : "You're done for today.";
-}
-
-function setTab(name) {
-  tab = name;
-  for (const [b, v, n] of [["tabNow", "viewNow", "now"], ["tabCapture", "viewCapture", "capture"],
-                           ["tabPlan", "viewPlan", "plan"], ["tabSetup", "viewSetup", "setup"]]) {
-    $(b).setAttribute("aria-selected", n === name ? "true" : "false");
-    $(v).hidden = n !== name;
-  }
-  $("stickybar").hidden = name !== "capture";
-  scrollTo({ top: 0, behavior: "instant" });
+  note.textContent = st.cloud === "ok"
+    ? `Linked — same list as your PC.`
+    : "Linking…";
+  note.style.color = "var(--ink-3)";
 }
 
 /* -------------------------------------------------------------- actions */
 
-const handlers = {
-  start: id => store.commit(s => { s.active = { id, startedAt: Date.now() }; }).then(render),
-  stop: () => store.commit(s => { s.active = null; }).then(render),
-  finish: (id, how) => store.commit(s => {
-    const t = s.tasks.find(x => x.id === id);
-    if (!t) return;
-    let mins = null;
-    if (s.active && s.active.id === id) {
-      mins = Math.max(1, Math.round((Date.now() - s.active.startedAt) / MIN));
-      t.actual = mins;
-      s.active = null;
-    }
-    t.status = how;
-    E.logFinish(s, t, how, mins);
-    lastAck = how === "done" ? A.ackDone(t, mins, who()) : null;
-  }).then(() => { haptic("light"); render(); }),
-  restore: id => store.commit(s => {
-    const t = s.tasks.find(x => x.id === id);
-    if (t) { t.status = "pending"; t.actual = null; }
-    s.log = s.log.filter(e => e.taskId !== id);
-  }).then(render)
-};
+const toggleTask = id => store.commit(s => {
+  const t = s.tasks.find(x => x.id === id);
+  if (!t) return;
+  if (t.status === "pending") { t.status = "done"; logFinish(s, t, "done", null); }
+  else { t.status = "pending"; s.log = s.log.filter(e => e.taskId !== id); }
+}).then(() => { haptic("light"); render(); });
 
-const goalHandlers = {
-  addTask(goalId) {
-    const g = store.state.goals.find(x => x.id === goalId);
-    if (!g) return;
-    return store.commit(s => {
-      const t = makeTask(g.title, s.tasks.length, 45, new Date(), Date.now());
-      t.goalId = g.id;
-      s.tasks.push(t);
-      s.date = todayKey();
-    }).then(render);
-  },
-  archive(goalId) {
-    return store.commit(s => {
-      const g = s.goals.find(x => x.id === goalId);
-      if (g) g.archived = true;
-    }).then(render);
+const deleteTask = id => store.commit(s => {
+  s.tasks = s.tasks.filter(x => x.id !== id);
+  s.tasks.forEach((t, i) => { t.ord = i; });
+}).then(render);
+
+const doneReminder = id => store.commit(s => {
+  const r = s.reminders.find(x => x.id === id);
+  if (r) { r.done = true; r.firedAt = r.firedAt || Date.now(); }
+}).then(async () => { haptic("light"); await syncNotifications(store.state); render(); });
+
+const deleteReminder = id => store.commit(s => {
+  s.reminders = s.reminders.filter(x => x.id !== id);
+}).then(async () => { await syncNotifications(store.state); render(); });
+
+/** Everything — photo, PDF, paste — ends up here. */
+async function absorb(text) {
+  const now = new Date();
+  say("Reading it…", "busy");
+  const res = await triage(text, ai, store.state.defaultEst, now);
+
+  if (!res.tasks.length && !res.reminders.length) {
+    say(triageSummary(res, who()), "bad");
+    return;
   }
-};
 
+  await store.commit(s => {
+    for (const t of res.tasks) { t.ord = s.tasks.length; s.tasks.push(t); }
+    for (const r of res.reminders) s.reminders.push(r);
+    s.date = todayKey(now);
+    s.uploadedAt = Date.now();
+  });
 
-/* ------------------------------------------------------------ reminders */
-
-const remHandlers = {
-  done: id => store.commit(s => {
-    const r = s.reminders.find(x => x.id === id);
-    if (r) { r.done = true; r.firedAt = r.firedAt || Date.now(); }
-  }).then(render),
-  remove: id => store.commit(s => {
-    s.reminders = s.reminders.filter(x => x.id !== id);
-  }).then(render),
-  snooze: id => store.commit(s => {
-    const r = s.reminders.find(x => x.id === id);
-    if (!r) return;
-    const d = new Date(); d.setDate(d.getDate() + 1);
-    r.at = todayKey(d);
-    r.firedAt = null;
-  }).then(render)
-};
-
-async function addReminder(line) {
-  const m = $("remMsg");
-  m.hidden = false;
-  const r = parseReminder(line, new Date());
-  if (!r) {
-    m.className = "msg err";
-    m.textContent = "No date in that. Try “cancel spotify on November 30”, “pay dues Friday”, or “in 2 weeks”.";
-    return false;
-  }
-  await store.commit(s => { s.reminders.push(r); });
-  m.className = "msg";
-  m.textContent = `Set: ${r.text} — ${whenWord(r, new Date())}.`;
+  await syncNotifications(store.state);
+  haptic("medium");
+  say(triageSummary(res, who()) + (res.error ? " (" + res.error + ")" : ""));
   render();
-  return true;
 }
 
-/* ---------------------------------------------------------------- inbox */
+async function handleFile(file) {
+  if (!file) return;
 
-function capMsg(text, bad) {
-  const m = $("capMsg");
-  m.hidden = false;
-  m.className = "msg" + (bad ? " err" : "");
-  m.textContent = text;
-}
-
-async function addCapture(cap) {
-  await store.commit(s => { s.inbox.push(cap); });
-  render();
-  return cap.id;
-}
-
-const inboxHandlers = {
-  async extract(capId) {
-    const cap = store.state.inbox.find(c => c.id === capId);
-    if (!cap) return;
-    const now = new Date();
-    const ruleCands = extractDeterministic(cap, now);
-    let modelCands = [], dropped = 0, err = null;
-    if (ai.hasKey()) {
-      capMsg("Reading it…");
-      const r = await extractWithModel(cap, ai, now);
-      modelCands = r.candidates; dropped = r.dropped; err = r.error;
-    }
-    await store.commit(s => {
-      const c = s.inbox.find(x => x.id === capId);
-      if (!c) return;
-      c.candidates = mergeCandidates(ruleCands, modelCands);
-      c.droppedCount = dropped;
-      c.status = "extracted";
-    });
-    render();
-    if (err) capMsg(err, true);
-    else if (dropped) capMsg(`${dropped} thrown out for quoting something that isn't there.`);
-    else $("capMsg").hidden = true;
-  },
-
-  accept(capId, candId) {
-    return store.commit(s => {
-      const c = s.inbox.find(x => x.id === capId);
-      const cd = c && c.candidates.find(x => x.id === candId);
-      if (!cd || cd.accepted) return;
-      const t = makeTask(cd.title, s.tasks.length, s.defaultEst, new Date(), Date.now());
-      if (cd.est) { t.est = cd.est; t.estGuessed = false; }
-      if (cd.due) { t.due = cd.due; t.dueKind = cd.dueKind || "Due"; t.dueSrc = "inbox"; }
-      t.fromInbox = { capId, source: c.source, quote: cd.quote };
-      s.tasks.push(t);
-      s.date = todayKey();
-      cd.accepted = true;
-      if (c.candidates.every(x => x.accepted)) c.status = "filed";
-    }).then(render);
-  },
-
-  acceptAll(capId) {
-    const c = store.state.inbox.find(x => x.id === capId);
-    if (!c) return;
-    return c.candidates.filter(x => !x.accepted).map(x => x.id)
-      .reduce((p, id) => p.then(() => inboxHandlers.accept(capId, id)), Promise.resolve());
-  },
-
-  dismiss(capId) {
-    return store.commit(s => {
-      const c = s.inbox.find(x => x.id === capId);
-      if (c) c.status = "dismissed";
-    }).then(render);
-  }
-};
-
-async function ingestFile(file) {
-  if (file.type.startsWith("image/")) {
-    capMsg(`Reading ${file.name || "photo"}…`);
-    const r = await readImage(file, ai);
-    if (!r.ok) {
-      capMsg(r.reason === "nokey"
-        ? "Photos need an API key — there's no OCR on the phone. Add one under Setup."
-        : r.reason === "toobig" ? "That photo is over 4.5MB. Try a tighter crop."
-        : "Couldn't read that image.", true);
+  if (file.type && file.type.startsWith("image/")) {
+    if (!ai.hasKey()) {
+      say("Add your OpenAI key in Settings and I can read photos. Until then, tap “Type it”.", "bad");
       return;
     }
-    if (!r.text) { capMsg("No text found in that photo.", true); return; }
-    const id = await addCapture(makeCapture({
-      kind: "image", source: file.name || `Photo · ${fmtClock(new Date())}`, text: r.text
-    }));
-    await inboxHandlers.extract(id);
+    say("Looking at it…", "busy");
+    const r = await readImage(file, ai);
+    if (!r.ok) {
+      say(r.reason === "toobig"
+        ? "That photo's too big — try a tighter crop."
+        : "Couldn't read that photo." + (r.error ? " " + r.error : ""), "bad");
+      return;
+    }
+    if (!r.text) { say("No text I could make out. Try more light, or hold it straighter.", "bad"); return; }
+    await absorb(r.text);
     return;
   }
-  if (/\.pdf$/i.test(file.name || "") || file.type === "application/pdf") {
-    capMsg("Opening the PDF…");
+
+  if (/\.pdf$/i.test(file.name || "")) {
+    say("Opening it…", "busy");
     const r = await readPDF(file);
-    if (!r.ok) { capMsg(pdfReasonText(r.reason), true); return; }
-    const id = await addCapture(makeCapture({ kind: "pdf", source: file.name, text: r.text }));
-    await inboxHandlers.extract(id);
+    if (!r.ok) { say(pdfReasonText(r.reason), "bad"); return; }
+    await absorb(r.text);
     return;
   }
+
   const text = await file.text();
-  if (!text.trim()) { capMsg("That file was empty.", true); return; }
-  const id = await addCapture(makeCapture({ kind: "file", source: file.name, text }));
-  await inboxHandlers.extract(id);
+  if (!text.trim()) { say("That file was empty.", "bad"); return; }
+  await absorb(text);
+}
+
+/** One typed line: a reminder if it names a future day, else tonight's work. */
+async function addOne(line) {
+  if (!stripBullet(line)) return;
+  const now = new Date();
+  const r = parseReminder(line, now);
+  const dated = r && daysBetween(now, new Date(r.at + "T00:00:00")) > 0;
+
+  await store.commit(s => {
+    if (dated) s.reminders.push(r);
+    else s.tasks.push(makeTask(line, s.tasks.length, s.defaultEst, now, Date.now()));
+    s.date = todayKey(now);
+  });
+
+  if (dated) await syncNotifications(store.state);
+  haptic("light");
+  say(dated ? `Got it. ${r.text} — ${whenWord(r, now)}.` : "Added.");
+  render();
 }
 
 /* ----------------------------------------------------------------- boot */
 
 (async function boot() {
- try {
-  initTheme("themeBtn");
-  $("rulesList").innerHTML = RULES_HTML;
+  try {
+    store = await openStore();
+    ai = makeAI(() => store.config);
 
-  store = await openStore();
-  ai = makeAI(() => store.config);
+    const c = store.config;
+    $("bedBox").value = store.state.bedtime;
+    $("nameBox").value = c.name || "";
+    $("apiKey").value = c.apiKey || "";
+    $("cloudUrl").value = c.cloudUrl || "";
+    $("cloudKey").value = c.cloudKey || "";
 
-  const c = store.config;
-  $("cloudUrl").value = c.cloudUrl || "";
-  $("cloudKey").value = c.cloudKey || "";
-  $("apiKey").value = c.apiKey || "";
-  $("model").value = c.model || "";
-  if (c.provider === "anthropic") $("provAnthropic").checked = true;
-  $("icsUrl").value = c.icsUrl || "";
-  $("bedBox").value = store.state.bedtime;
-  $("estBox").value = store.state.defaultEst;
-  const d14 = new Date(); d14.setDate(d14.getDate() + 14);
-  $("gDate").value = todayKey(d14);
-
-  store.onChange(render);
-  render();
-  setTab("now");
-
-  wireAsk({ input: $("askBox"), askBtn: $("askBtn"), out: $("askOut"), chips: $("askChips") }, ctx);
-
-  if (c.cloudUrl && c.cloudKey) { await store.pull(); store.startPolling(45000); render(); }
-  // Google blocks .ics reads from a plain page, so try directly (works in
-  // a native build) and otherwise use what the extension already pulled.
-  if (c.icsUrl) {
-    const r = await fetchCalendar(c.icsUrl, Date.now() - 2 * 3600000, Date.now() + 8 * 86400000);
-    if (r.ok) { events = r.events; render(); }
-  }
-  if (!events.length && (store.state.calEvents || []).length) {
-    events = store.state.calEvents;
-    render();
-  }
-
-  setInterval(() => {
-    const now = new Date();
-    $("clock").textContent = fmtClock(now);
-    if (now.getMinutes() !== lastMin) render();
-  }, 1000);
-
-  /* ---- tabs ---- */
-  $("tabNow").addEventListener("click", () => setTab("now"));
-  $("tabCapture").addEventListener("click", () => setTab("capture"));
-  $("tabPlan").addEventListener("click", () => setTab("plan"));
-  $("tabSetup").addEventListener("click", () => setTab("setup"));
-
-  /* ---- send the list ---- */
-  async function send() {
-    const tasks = parseList($("listBox").value, store.state.defaultEst, new Date());
-    const m = $("sendMsg");
-    m.hidden = false;
-    if (!tasks.length) { m.className = "msg err"; m.textContent = "Nothing to send — the box is empty."; return; }
-    await store.commit(s => {
-      s.tasks = tasks; s.date = todayKey(); s.uploadedAt = Date.now(); s.active = null;
+    store.onChange(() => {
+      $("bedBox").value = store.state.bedtime;
+      render();
     });
-    m.className = "msg";
-    m.textContent = store.status.cloud === "ok"
-      ? `Sent — ${tasks.length} item${tasks.length === 1 ? "" : "s"}. It's on your PC.`
-      : store.status.cloud === "off"
-        ? `Saved on this phone — ${tasks.length} item${tasks.length === 1 ? "" : "s"}. Turn on sync in Setup to send it to your PC.`
-        : `Saved here, but sync failed. ${store.status.msg}`;
     render();
-  }
-  $("sendBtn").addEventListener("click", send);
-  $("stickyPrimary").addEventListener("click", send);
 
-  $("loadBtn").addEventListener("click", () => {
-    $("listBox").value = [...store.state.tasks].sort((a, b) => a.ord - b.ord).map(t => t.raw).join("\n");
-    $("listBox").focus();
-  });
-  $("pullBtn").addEventListener("click", async () => { await store.pull(); render(); });
+    // Pull first, so the phone shows the PC's list rather than its own copy.
+    if (c.cloudUrl && c.cloudKey) {
+      await store.pull();
+      store.startPolling(30000);
+      render();
+    }
 
-  const add = async () => {
-    const v = $("addBox").value;
-    if (!stripBullet(v)) return;
-    await store.commit(s => {
-      s.tasks.push(makeTask(v, s.tasks.length, s.defaultEst, new Date(), Date.now()));
-      s.date = todayKey();
-    });
-    $("addBox").value = "";
-    render();
-  };
-  $("addBtn").addEventListener("click", add);
-  $("addBox").addEventListener("keydown", e => { if (e.key === "Enter") add(); });
-
-  /* ---- capture ---- */
-  $("camBtn").addEventListener("click", () => $("camInput").click());
-  $("pickBtn").addEventListener("click", () => $("fileInput").click());
-  for (const id of ["camInput", "fileInput"]) {
-    $(id).addEventListener("change", async e => {
-      for (const f of e.target.files) await ingestFile(f);
-      e.target.value = "";
-    });
-  }
-  $("noteBtn").addEventListener("click", async () => {
-    const text = $("noteBox").value;
-    if (!text.trim()) return;
-    const id = await addCapture(makeCapture({ kind: "note", source: `Note · ${fmtClock(new Date())}`, text }));
-    $("noteBox").value = "";
-    await inboxHandlers.extract(id);
-  });
-
-  /* ---- voice: the 3:00 flow. Speak it, check it, send it. ---- */
-  makeVoicePanel(
-    { btn: $("micBtn"), transcript: $("vtext"), lines: $("vlines"), result: $("micResult"), box: $("vbox"), clear: $("micClear") },
-    () => ai,
-    async (lines, mode) => {
-      const tasks = parseList(lines.join("\n"), store.state.defaultEst, new Date());
-      if (!tasks.length) return;
-      await store.commit(s => {
-        if (mode === "replace") {
-          s.tasks = tasks;
-          s.uploadedAt = Date.now();
-          s.active = null;
-        } else {
-          for (const t of tasks) { t.ord = s.tasks.length; t.addedAt = Date.now(); s.tasks.push(t); }
-        }
-        s.date = todayKey();
+    /* ---- capture ---- */
+    $("snapBtn").addEventListener("click", () => $("camInput").click());
+    $("pickBtn").addEventListener("click", () => $("fileInput").click());
+    for (const id of ["camInput", "fileInput"]) {
+      $(id).addEventListener("change", async e => {
+        const f = e.target.files[0];
+        e.target.value = "";
+        await handleFile(f);
       });
+    }
+
+    $("typeBtn").addEventListener("click", () => {
+      const b = $("typeBox");
+      b.hidden = !b.hidden;
+      if (!b.hidden) $("listBox").focus();
+    });
+    $("typeCancel").addEventListener("click", () => { $("typeBox").hidden = true; });
+    $("typeSave").addEventListener("click", async () => {
+      const v = $("listBox").value;
+      if (!v.trim()) return;
+      $("typeBox").hidden = true;
+      $("listBox").value = "";
+      await absorb(v);
+    });
+
+    $("addBtn").addEventListener("click", async () => {
+      await addOne($("addBox").value);
+      $("addBox").value = "";
+    });
+    $("addBox").addEventListener("keydown", async e => {
+      if (e.key === "Enter") { await addOne($("addBox").value); $("addBox").value = ""; }
+    });
+
+    /* ---- settings ---- */
+    $("saveBtn").addEventListener("click", async () => {
+      await store.commit(s => { s.bedtime = $("bedBox").value || "21:00"; });
+      await store.setConfig({
+        name: $("nameBox").value.trim(),
+        apiKey: $("apiKey").value.trim(),
+        cloudUrl: $("cloudUrl").value.trim(),
+        cloudKey: $("cloudKey").value.trim()
+      });
+      if (store.config.cloudUrl && store.config.cloudKey) {
+        await store.pull();
+        store.startPolling(30000);
+      }
+      $("noteMsg").textContent = "Saved.";
+      setTimeout(() => { $("noteMsg").textContent = ""; }, 2000);
       render();
-    }
-  );
-
-  /* ---- goals ---- */
-  $("gAdd").addEventListener("click", async () => {
-    const title = $("gTitle").value.trim();
-    const date = $("gDate").value;
-    const hours = parseFloat($("gHours").value);
-    if (!title || !date || !(hours > 0)) return;
-    await store.commit(s => {
-      s.goals.push(makeGoal({ title, targetDate: date, totalMin: Math.round(hours * 60) }));
     });
-    $("gTitle").value = "";
-    render();
-  });
 
-  /* ---- setup ---- */
-  $("remBtn").addEventListener("click", async () => {
-    if (await addReminder($("remBox").value)) $("remBox").value = "";
-  });
-  $("remBox").addEventListener("keydown", async e => {
-    if (e.key === "Enter" && await addReminder($("remBox").value)) $("remBox").value = "";
-  });
-  wireNotifyPermission($("notifBtn"), $("notifState"));
-
-  $("saveCfg").addEventListener("click", async () => {
-    await store.setConfig({ cloudUrl: $("cloudUrl").value.trim(), cloudKey: $("cloudKey").value.trim() });
-    $("cfgMsg").className = "msg";
-    $("cfgMsg").textContent = "Saved.";
-    if (store.config.cloudUrl && store.config.cloudKey) store.startPolling(45000);
-    render();
-  });
-  $("testCloud").addEventListener("click", async () => {
-    const m = $("cfgMsg");
-    m.className = "msg"; m.textContent = "Checking…";
-    const probe = { cloudUrl: $("cloudUrl").value.trim(), cloudKey: $("cloudKey").value.trim() };
-    if (!probe.cloudUrl || !probe.cloudKey) { m.className = "msg err"; m.textContent = "Both fields are needed."; return; }
-    const got = await cloudGet(probe);
-    if (!got.ok) { m.className = "msg err"; m.textContent = cloudStatusText(got.reason, got.status); return; }
-    m.textContent = got.data && Array.isArray(got.data.tasks)
-      ? `Connected — found a list of ${got.data.tasks.length} from ${got.data.date || "an earlier day"}.`
-      : "Connected — nothing stored under this key yet.";
-  });
-  function paintProvider() {
-    const p = $("provOpenai").checked ? "openai" : "anthropic";
-    $("provOpenaiL").classList.toggle("on", p === "openai");
-    $("provAnthropicL").classList.toggle("on", p === "anthropic");
-    $("apiKey").placeholder = PROVIDERS[p].keyHint;
-    $("model").placeholder = PROVIDERS[p].defaultModel;
-    const cur = $("model").value.trim();
-    if (!cur || cur === PROVIDERS.openai.defaultModel || cur === PROVIDERS.anthropic.defaultModel) {
-      $("model").value = PROVIDERS[p].defaultModel;
-    }
-  }
-  for (const id of ["provOpenai", "provAnthropic"]) $(id).addEventListener("change", paintProvider);
-  paintProvider();
-
-  $("saveKey").addEventListener("click", async () => {
-    const provider = $("provOpenai").checked ? "openai" : "anthropic";
-    await store.setConfig({
-      provider,
-      apiKey: $("apiKey").value.trim(),
-      model: $("model").value.trim() || PROVIDERS[provider].defaultModel
+    $("notifBtn").addEventListener("click", async () => {
+      const ok = await askNotifications();
+      $("noteMsg").textContent = ok
+        ? "Notifications on."
+        : "Notifications are off — turn them on for Abby in your phone's Settings.";
     });
-    $("keyMsg").className = "msg";
-    $("keyMsg").textContent = $("apiKey").value.trim() ? "Saved on this phone." : "Cleared.";
-    render();
-  });
 
-  $("testKey").addEventListener("click", async () => {
-    const provider = $("provOpenai").checked ? "openai" : "anthropic";
-    const probe = makeAI(() => ({
-      provider, apiKey: $("apiKey").value.trim(),
-      model: $("model").value.trim() || PROVIDERS[provider].defaultModel
-    }));
-    const m = $("keyMsg");
-    m.className = "msg";
-    if (!probe.hasKey()) { m.className = "msg err"; m.textContent = "No key entered."; return; }
-    m.textContent = "Checking…";
-    try {
-      const r = await probe.test();
-      m.textContent = `Works — ${PROVIDERS[r.provider].label} ${r.model} answered.`;
-    } catch (e) {
-      m.className = "msg err";
-      m.textContent = e.message || "That didn't work.";
-    }
-  });
-  $("saveIcs").addEventListener("click", async () => {
-    await store.setConfig({ icsUrl: $("icsUrl").value.trim() });
-    const r = await fetchCalendar(store.config.icsUrl, Date.now(), Date.now() + 8 * 86400000);
-    if (r.ok) { events = r.events; render(); }
-  });
-  $("bedBox").addEventListener("change", async () => {
-    await store.commit(s => { s.bedtime = $("bedBox").value || "22:00"; });
-    render();
-  });
-  $("estBox").addEventListener("change", async () => {
-    const v = Math.max(5, Math.min(180, parseInt($("estBox").value, 10) || 30));
-    $("estBox").value = v;
-    await store.commit(s => { s.defaultEst = v; });
-    render();
-  });
-
-  /* ---- native ---- */
-  if (isNative()) {
-    document.body.classList.add("native");
-    await askNotifications();
-    await flushOverdue(store.state);
-    await syncNotifications(store.state);
-    onNotificationTap(() => { setTab("now"); render(); });
-    onResume(async () => {
-      await store.pull().catch(() => {});
+    /* ---- native ---- */
+    if (isNative()) {
+      await askNotifications();
       await flushOverdue(store.state);
-      render();
-    });
-  } else if (await notificationsAllowed()) {
-    // web: nothing to schedule, notifyDue handles it while open
-  }
+      await syncNotifications(store.state);
+      onNotificationTap(() => render());
+      onResume(async () => {
+        await store.pull().catch(() => {});
+        await flushOverdue(store.state);
+        render();
+      });
+    } else if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
 
-  if (!isNative() && "serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => { /* offline cache is a bonus, never required */ });
-  }
+    setInterval(() => {
+      const now = new Date();
+      $("clock").textContent = fmtClock(now);
+      if (now.getMinutes() !== lastMin) render();
+    }, 1000);
 
-  window.__abbyBooted = true;
- } catch (err) {
-   // There is no console on a phone. Put it on the screen.
-   if (window.__abbyFatal) {
-     window.__abbyFatal("Abby hit an error starting up.",
-       (err && (err.stack || err.message)) || String(err));
-   } else {
-     throw err;
-   }
- }
+    window.__abbyBooted = true;
+  } catch (err) {
+    if (window.__abbyFatal) {
+      window.__abbyFatal("Abby hit an error starting up.", (err && (err.stack || err.message)) || String(err));
+    } else { throw err; }
+  }
 })();
