@@ -61,5 +61,40 @@ const count = (function walk(d) {
   return n;
 })(DIST);
 
+// Guard against the boot watchdog being lost in a future edit.
+const built = readFileSync(indexPath, "utf8");
+if (!built.includes("__abbyFatal")) {
+  console.error("WARNING: the boot watchdog is missing from index.html");
+  process.exitCode = 1;
+}
+
 console.log(`dist/ built — ${count} files, web root for Capacitor`);
 console.log("next:  npx cap sync ios   (needs the npm install to have run)");
+
+/* iOS Safari before 16.4 throws a SyntaxError on a regex lookbehind, and a
+   SyntaxError in one ES module silently kills every module importing it.
+   That cost a whole debugging round once; it does not get to happen twice. */
+const RISKY = [
+  [/\(\?<[=!]/, "regex lookbehind (?<= or (?<!) — SyntaxError on iOS < 16.4"],
+  [/\bObject\.hasOwn\b/, "Object.hasOwn — iOS 15.4+"],
+  [/\bstructuredClone\b/, "structuredClone — iOS 15.4+"],
+  [/\bArray\.fromAsync\b/, "Array.fromAsync — very new"]
+];
+const offenders = [];
+(function scan(dir) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) { scan(p); continue; }
+    if (!name.endsWith(".js")) continue;
+    const src = readFileSync(p, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    for (const [re, why] of RISKY) if (re.test(src)) offenders.push(`${p}: ${why}`);
+  }
+})(DIST);
+
+if (offenders.length) {
+  console.error("\nBlocked — syntax iOS may refuse:\n  " + offenders.join("\n  "));
+  process.exit(1);
+}
+console.log("iOS syntax check: clean");

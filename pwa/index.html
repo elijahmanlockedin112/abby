@@ -18,8 +18,64 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="../shared/ui.css">
+
+<script>
+/* Boot watchdog — a classic script, so it parses even when a module doesn't.
+   A SyntaxError in one ES module silently kills every module that imports it,
+   and the app just sits there doing nothing. That is never acceptable: if
+   Abby can't start, she says so and says why. */
+(function () {
+  var shown = false;
+  function fatal(title, detail) {
+    if (shown) return;
+    shown = true;
+    var el = document.getElementById("fatal");
+    if (!el) return;
+    el.hidden = false;
+    el.querySelector(".ft").textContent = title;
+    el.querySelector(".fd").textContent = detail || "";
+    var app = document.querySelector(".wrap");
+    if (app) app.style.display = "none";
+  }
+  window.__abbyFatal = fatal;
+
+  // Capture phase catches script/resource load failures too, not just throws.
+  window.addEventListener("error", function (e) {
+    if (e && e.target && e.target.tagName === "SCRIPT") {
+      fatal("A script didn't load.", (e.target.src || "") + " — check your connection and reopen.");
+      return;
+    }
+    fatal("Abby hit an error starting up.", (e && e.message ? e.message : "Unknown error") +
+      (e && e.filename ? "\n" + e.filename + ":" + e.lineno : ""));
+  }, true);
+
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason;
+    fatal("Abby hit an error starting up.", (r && (r.message || r)) + "");
+  });
+
+  // If nothing has signalled a successful boot, something failed quietly.
+  setTimeout(function () {
+    if (!window.__abbyBooted) {
+      fatal("Abby didn't finish starting.",
+        "The page loaded but the app never came up. This is usually a script that failed to parse. " +
+        "iOS version: " + navigator.userAgent);
+    }
+  }, 9000);
+})();
+</script>
 </head>
 <body class="surface-pwa">
+
+<div id="fatal" hidden style="max-width:620px;margin:0 auto;padding:28px 18px">
+  <p style="font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--crit);margin:0 0 10px">Couldn't start</p>
+  <h1 class="ft" style="font-size:24px;font-weight:800;letter-spacing:-.03em;margin:0 0 10px"></h1>
+  <pre class="fd" style="font-family:var(--f-mono);font-size:12px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px;margin:0"></pre>
+  <div class="btnrow">
+    <button onclick="location.reload()">Reload</button>
+    <button class="ghost" onclick="try{localStorage.clear()}catch(e){};location.reload()">Reset and reload</button>
+  </div>
+</div>
 
 <div class="topbar">
   <div class="inner">

@@ -370,6 +370,7 @@ async function ingestFile(file) {
 /* ----------------------------------------------------------------- boot */
 
 (async function boot() {
+ try {
   initTheme("themeBtn");
   $("rulesList").innerHTML = RULES_HTML;
 
@@ -614,4 +615,15 @@ async function ingestFile(file) {
   if (!isNative() && "serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => { /* offline cache is a bonus, never required */ });
   }
+
+  window.__abbyBooted = true;
+ } catch (err) {
+   // There is no console on a phone. Put it on the screen.
+   if (window.__abbyFatal) {
+     window.__abbyFatal("Abby hit an error starting up.",
+       (err && (err.stack || err.message)) || String(err));
+   } else {
+     throw err;
+   }
+ }
 })();

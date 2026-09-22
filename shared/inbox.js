@@ -54,10 +54,32 @@ function looksLikeTask(line) {
   return bulleted || ACTION_WORDS.test(s) || SCHOOL_WORDS.test(s);
 }
 
+/**
+ * Split pasted material into candidate lines.
+ *
+ * Deliberately written without a regex lookbehind: `(?<=…)` is a SyntaxError
+ * on iOS Safari before 16.4, and a SyntaxError in one ES module takes down
+ * every module that imports it — which here is the entire app, silently.
+ */
+function splitChunks(text) {
+  const out = [];
+  for (const line of String(text || "").split(/\r?\n/)) {
+    let rest = line;
+    let m;
+    // Two or more spaces after a . or ; is a soft line break in pasted text.
+    while ((m = rest.match(/([.;])[ \t]{2,}/))) {
+      out.push(rest.slice(0, m.index + 1));
+      rest = rest.slice(m.index + m[0].length);
+    }
+    out.push(rest);
+  }
+  return out;
+}
+
 export function extractDeterministic(capture, now = new Date()) {
   const out = [];
   const seen = new Set();
-  for (const raw of String(capture.text || "").split(/\r?\n|(?<=[.;])\s{2,}/)) {
+  for (const raw of splitChunks(capture.text)) {
     if (!looksLikeTask(raw)) continue;
     const title = stripBullet(raw);
     const key = title.toLowerCase();
