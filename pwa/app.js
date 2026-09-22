@@ -14,6 +14,7 @@ import {
 } from "../shared/engine.js";
 import { openStore } from "../shared/sync.js";
 import { makeAI } from "../shared/ai.js";
+import { decodeLink, linkReasonText } from "../shared/linkcode.js";
 import { readImage, readPDF, pdfReasonText } from "../shared/inbox.js";
 import { triage, triageSummary } from "../shared/triage.js";
 import { parseReminder, makeReminder, whenWord, fireAt, overdueNote, fmt12 } from "../shared/reminders.js";
@@ -659,6 +660,31 @@ async function saveComposer() {
       }
       $("noteMsg").textContent = "Saved.";
       setTimeout(() => { $("noteMsg").textContent = ""; }, 2000);
+      render();
+    });
+
+    $("applyLink").addEventListener("click", async () => {
+      const out = $("linkResult");
+      const r = decodeLink($("pasteLink").value);
+      if (!r.ok) { out.textContent = linkReasonText(r.reason); out.style.color = "var(--crit)"; return; }
+
+      $("cloudUrl").value = r.config.cloudUrl;
+      $("cloudKey").value = r.config.cloudKey;
+      await store.setConfig(r.config);
+      $("pasteLink").value = "";
+
+      out.textContent = "Linking…";
+      out.style.color = "var(--ink-3)";
+      const st = await store.pull();
+      if (st.cloud === "ok") {
+        store.startPolling(30000);
+        out.textContent = `Linked — ${store.state.tasks.length} task${store.state.tasks.length === 1 ? "" : "s"} and ${store.state.reminders.length} reminder${store.state.reminders.length === 1 ? "" : "s"} from your PC.`;
+        out.style.color = "var(--good)";
+        haptic("medium");
+      } else {
+        out.textContent = st.msg || "Saved, but the database didn't answer.";
+        out.style.color = "var(--crit)";
+      }
       render();
     });
 

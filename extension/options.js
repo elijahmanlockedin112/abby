@@ -7,9 +7,18 @@ import { openStore, cloudGet, cloudPut, cloudStatusText } from "../shared/sync.j
 import { fetchCalendar, calStatusText } from "../shared/ics.js";
 import { makeAI, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL } from "../shared/ai.js";
 import { fetchGitHub, ghReasonText } from "../shared/sources.js";
+import { encodeLink, decodeLink, linkReasonText, describeLink } from "../shared/linkcode.js";
 import { $, initTheme } from "../shared/ui.js";
 
 let store = null;
+
+function say(id, text, tone) {
+  const e = $(id);
+  if (!e) return;
+  e.hidden = false;
+  e.className = "result" + (tone ? " " + tone : "");
+  e.textContent = text;
+}
 
 function randomKey() {
   const bytes = new Uint8Array(16);
@@ -64,6 +73,63 @@ function fillHours() {
   paintProvider();
 
   $("genKey").addEventListener("click", () => { $("cloudKey").value = randomKey(); });
+
+  /* ---- the link code ---- */
+  function currentLinkCfg() {
+    return {
+      cloudUrl: $("cloudUrl").value.trim(),
+      cloudKey: $("cloudKey").value.trim(),
+      salt: store.config.salt || "",
+      passphrase: store.config.passphrase || ""
+    };
+  }
+  function paintLink() {
+    const cfg = currentLinkCfg();
+    const code = encodeLink(cfg);
+    $("linkDesc").textContent = describeLink(cfg);
+    $("copyLink").disabled = !code;
+    $("showLink").disabled = !code;
+    $("linkCode").textContent = code || "—";
+  }
+  paintLink();
+  for (const id of ["cloudUrl", "cloudKey"]) $(id).addEventListener("input", paintLink);
+
+  $("showLink").addEventListener("click", () => {
+    $("linkRow").hidden = !$("linkRow").hidden;
+    $("showLink").textContent = $("linkRow").hidden ? "Show it" : "Hide it";
+  });
+
+  $("copyLink").addEventListener("click", async () => {
+    const code = encodeLink(currentLinkCfg());
+    if (!code) { say("linkResult", "Set the database URL and key first.", "bad"); return; }
+    try {
+      await navigator.clipboard.writeText(code);
+      say("linkResult", "Copied. Paste it into your phone's Settings, and into the launcher page if you use it.", "ok");
+    } catch {
+      $("linkRow").hidden = false;
+      $("showLink").textContent = "Hide it";
+      say("linkResult", "Couldn't reach the clipboard — the code is shown above, select and copy it.", "bad");
+    }
+  });
+
+  $("applyLink").addEventListener("click", async () => {
+    const r = decodeLink($("pasteLink").value);
+    if (!r.ok) { say("linkResult", linkReasonText(r.reason), "bad"); return; }
+
+    $("cloudUrl").value = r.config.cloudUrl;
+    $("cloudKey").value = r.config.cloudKey;
+    await store.setConfig(r.config);
+    paintLink();
+    $("pasteLink").value = "";
+
+    say("linkResult", "Linked. Checking the database…", "busy");
+    const st = await store.pull();
+    say("linkResult",
+      st.cloud === "ok"
+        ? `Linked — ${store.state.tasks.length} task${store.state.tasks.length === 1 ? "" : "s"} and ${store.state.reminders.length} reminder${store.state.reminders.length === 1 ? "" : "s"} pulled in.`
+        : (st.msg || "Saved, but the database didn't answer."),
+      st.cloud === "ok" ? "ok" : "bad");
+  });
 
   $("save").addEventListener("click", async () => {
     await store.setConfig({

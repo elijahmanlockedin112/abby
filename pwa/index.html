@@ -295,6 +295,14 @@ li.editing{background:var(--surface);border-radius:12px;padding-inline:10px;marg
       <label class="fld" for="apiKey" style="margin-top:14px">OpenAI key <span style="text-transform:none;letter-spacing:0;font-weight:400">— needed to read photos</span></label>
       <input type="password" id="apiKey" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-proj-…">
 
+      <label class="fld" for="pasteLink" style="margin-top:14px">Link code from your PC</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="pasteLink" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="abby-…">
+        <button class="sm" id="applyLink">Link</button>
+      </div>
+      <p class="note">Extension → Options → <b>Copy link code</b>, then paste it here. Fills in everything below at once.</p>
+      <p class="note" id="linkResult"></p>
+
       <label class="fld" for="cloudUrl" style="margin-top:14px">Sync — database URL</label>
       <input type="url" id="cloudUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…firebaseio.com">
       <label class="fld" for="cloudKey" style="margin-top:10px">Sync — shared key</label>

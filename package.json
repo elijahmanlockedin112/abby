@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "serve": "node tools/serve.mjs",
-    "test": "node test/engine.test.mjs && node test/crypto.test.mjs && node test/map.test.mjs && node test/fire.test.mjs && node test/sync.test.mjs && node test/triage.test.mjs",
+    "test": "node test/engine.test.mjs && node test/crypto.test.mjs && node test/map.test.mjs && node test/fire.test.mjs && node test/sync.test.mjs && node test/triage.test.mjs && node test/link.test.mjs",
     "build:ios": "node tools/build-ios.mjs",
     "sync:ios": "npm run build:ios && cap sync ios",
     "open:ios": "cap open ios"

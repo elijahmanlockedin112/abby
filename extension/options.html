@@ -57,6 +57,29 @@
     <div class="btnrow"><button class="sm" id="testCal">Test feed</button><span id="calResult" class="msg" style="align-self:center"></span></div>
   </div>
 
+  <div class="panel" id="linkPanel">
+    <h3>Link your devices</h3>
+    <p class="sub">
+      This browser, your phone and the local launcher each keep their own settings — none of them
+      can read another's. That's why setting up Firebase in one place leaves the others blind.
+      One code fixes all of it.
+    </p>
+
+    <div class="btnrow" style="margin-top:0">
+      <button class="go" id="copyLink">Copy link code</button>
+      <button class="sm ghost" id="showLink">Show it</button>
+    </div>
+    <p class="sub" id="linkDesc" style="margin-top:8px"></p>
+    <div class="copyrow" id="linkRow" hidden><code id="linkCode">—</code></div>
+
+    <label class="fld" for="pasteLink" style="margin-top:18px">Or paste a code from another device</label>
+    <div class="keyrow" style="display:flex;gap:8px">
+      <input type="text" id="pasteLink" spellcheck="false" autocomplete="off" placeholder="abby-…">
+      <button class="sm" id="applyLink">Apply</button>
+    </div>
+    <div class="result" id="linkResult" hidden></div>
+  </div>
+
   <div class="panel">
     <h3>Phone sync</h3>
     <p class="sub">This is what makes the 3:00 upload land on your PC. Both devices read and write one key in a free Firebase Realtime Database. Leave it blank and everything still works — just on one device at a time.</p>

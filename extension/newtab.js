@@ -74,8 +74,9 @@ function render() {
   $("syncChip").textContent = st.cloud === "ok" ? "phone synced" : st.cloud === "pending" ? "syncing…" : "sync error";
   $("syncChip").className = "chip " + (st.cloud === "ok" ? "ok" : st.cloud === "error" ? "crit" : "");
   $("syncMsg").textContent = st.cloud === "off"
-    ? "Sync is off — this computer only. Turn it on in Options to send lists from your phone."
-    : st.msg || (st.cloud === "ok" ? "Synced with your phone." : "");
+    ? "Not linked to your phone. Options → Link your devices — paste the code, or copy this browser's."
+    : st.msg || (st.cloud === "ok" ? "Linked — same list as your phone." : "");
+  $("syncMsg").style.color = st.cloud === "off" ? "var(--warn)" : "";
   $("pullBtn").hidden = st.cloud === "off";
 
   $("planNote").textContent = plan.segs.some(s => s.type === "task") ? `rebuilt from ${fmtClock(now)}` : "";
