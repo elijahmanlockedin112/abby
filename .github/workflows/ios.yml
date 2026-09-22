@@ -54,7 +54,11 @@ jobs:
         run: pod install --repo-update
 
       # ---------- unsigned: always runs, proves it compiles ----------
-      - name: Build (unsigned)
+      # AD-HOC, not unsigned. CODE_SIGNING_ALLOWED=NO leaves the app and all
+      # 25 embedded frameworks with no _CodeSignature at all, and sideloading
+      # tools re-sign by REPLACING a signature — given none, they fail with
+      # "Invalid file". Ad-hoc ("-") produces the real structure they expect.
+      - name: Build (ad-hoc signed)
         if: ${{ inputs.signed != true }}
         working-directory: ios/App
         run: |
@@ -64,22 +68,43 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
             build
 
       # An unsigned .ipa is just Payload/App.app zipped. Sideloading tools
       # on Windows re-sign it with your own Apple ID, so this is the format
       # that can actually reach a phone — a bare .app cannot.
-      - name: Package an installable unsigned .ipa
+      - name: Package an installable .ipa
         if: ${{ inputs.signed != true }}
         run: |
           APP=ios/App/build/Build/Products/Release-iphoneos/App.app
           if [ ! -d "$APP" ]; then echo "::error::App.app not found — the build step failed"; exit 1; fi
+
+          # Fail loudly rather than shipping another bundle that can't install.
+          if [ ! -d "$APP/_CodeSignature" ]; then
+            echo "::error::App.app has no _CodeSignature — sideloading will fail with 'Invalid file'"
+            exit 1
+          fi
+          FW_TOTAL=$(ls -1 "$APP/Frameworks" 2>/dev/null | grep -c '\.framework$' || echo 0)
+          FW_SIGNED=$(find "$APP/Frameworks" -maxdepth 2 -name _CodeSignature -type d 2>/dev/null | wc -l | tr -d ' ')
+          echo "frameworks: $FW_SIGNED of $FW_TOTAL signed"
+          if [ "$FW_TOTAL" -gt 0 ] && [ "$FW_SIGNED" -lt "$FW_TOTAL" ]; then
+            echo "::error::Some embedded frameworks are unsigned — sideloading will fail"
+            exit 1
+          fi
+          codesign -dv "$APP" 2>&1 | head -4 || true
+
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/App.app
-          cd out && zip -qry Abby-unsigned.ipa Payload && rm -rf Payload
-          ls -lh Abby-unsigned.ipa
+          # --symlinks keeps framework symlinks as links instead of copies.
+          cd out && zip -qry --symlinks Abby.ipa Payload && rm -rf Payload
+          ls -lh Abby.ipa
 
       # ---------- signed: a real installable build ----------
       - name: Import signing certificate
