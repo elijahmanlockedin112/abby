@@ -23,6 +23,7 @@ import {
 } from "../shared/native.js";
 
 let store = null, ai = null, lastMin = -1;
+let editing = null;   // id of the row currently open for editing
 
 const $ = id => document.getElementById(id);
 const who = () => (store && store.config && store.config.name || "").trim();
@@ -105,7 +106,7 @@ function group(title, count, rows) {
   return g;
 }
 
-function row({ done, title, bits, onToggle, onDelete }) {
+function row({ done, title, bits, onToggle, onDelete, onEdit, editor }) {
   const li = document.createElement("li");
   if (done) li.className = "done";
 
@@ -132,6 +133,14 @@ function row({ done, title, bits, onToggle, onDelete }) {
     }
     w.appendChild(sub);
   }
+  if (onEdit) {
+    w.setAttribute("role", "button");
+    w.setAttribute("tabindex", "0");
+    w.addEventListener("click", onEdit);
+    w.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEdit(); }
+    });
+  }
   li.appendChild(w);
 
   const x = document.createElement("button");
@@ -140,11 +149,19 @@ function row({ done, title, bits, onToggle, onDelete }) {
   x.setAttribute("aria-label", "Remove");
   x.addEventListener("click", onDelete);
   li.appendChild(x);
+
+  if (editor) {
+    li.classList.add("editing");
+    li.style.flexWrap = "wrap";
+    editor.style.flexBasis = "100%";
+    li.appendChild(editor);
+  }
   return li;
 }
 
 function taskRow(t, now) {
-  const bits = [{ text: fmtDur(t.est) }];
+  // A tilde means Abby guessed the number rather than reading it off the page.
+  const bits = [{ text: (t.estGuessed ? "~" : "") + fmtDur(t.est), cls: t.estGuessed ? "guess" : "" }];
   if (t.due) {
     const dd = new Date(t.due + "T00:00:00");
     const d = daysBetween(now, dd);
@@ -153,23 +170,189 @@ function taskRow(t, now) {
       cls: d <= 1 ? "soon" : "due"
     });
   }
+  if (editing !== t.id) bits.push({ text: "tap to edit", cls: "tap" });
+
   return row({
     done: t.status !== "pending",
     title: t.title,
     bits,
     onToggle: () => toggleTask(t.id),
-    onDelete: () => deleteTask(t.id)
+    onDelete: () => deleteTask(t.id),
+    onEdit: () => { editing = editing === t.id ? null : t.id; render(); },
+    editor: editing === t.id ? taskEditor(t) : null
   });
+}
+
+function field(label, node) {
+  const d = document.createElement("div");
+  const l = document.createElement("label");
+  l.textContent = label;
+  d.appendChild(l);
+  d.appendChild(node);
+  return d;
+}
+
+function input(type, value, attrs) {
+  const i = document.createElement("input");
+  i.type = type;
+  i.value = value == null ? "" : value;
+  for (const k in (attrs || {})) i.setAttribute(k, attrs[k]);
+  return i;
+}
+
+function actions(children) {
+  const a = document.createElement("div");
+  a.className = "acts";
+  for (const c of children) a.appendChild(c);
+  return a;
+}
+
+function btn(label, cls, fn) {
+  const b = document.createElement("button");
+  b.className = cls;
+  b.textContent = label;
+  b.addEventListener("click", ev => { ev.stopPropagation(); fn(); });
+  return b;
+}
+
+/** Everything Abby guessed about a task, editable. */
+function taskEditor(t) {
+  const box = document.createElement("div");
+  box.className = "edit";
+  box.addEventListener("click", e => e.stopPropagation());
+
+  const title = input("text", t.title);
+  title.setAttribute("aria-label", "Task");
+  box.appendChild(title);
+
+  const mins = input("number", t.est, { min: "5", max: "300", step: "5" });
+  const due = input("date", t.due || "");
+  const two = document.createElement("div");
+  two.className = "two";
+  two.appendChild(field(t.estGuessed ? "Minutes (guessed)" : "Minutes", mins));
+  two.appendChild(field("Due", due));
+  box.appendChild(two);
+
+  box.appendChild(actions([
+    btn("Save", "go", async () => {
+      const v = title.value.trim();
+      const m = Math.max(5, Math.min(300, parseInt(mins.value, 10) || t.est));
+      await store.commit(s => {
+        const x = s.tasks.find(y => y.id === t.id);
+        if (!x) return;
+        if (v) { x.title = v; x.raw = v; }
+        x.est = m;
+        x.estGuessed = false;
+        x.due = due.value || null;
+        x.dueKind = due.value ? (x.dueKind || "Due") : null;
+      });
+      editing = null;
+      haptic("light");
+      render();
+    }),
+    btn("Make it a reminder", "move", () => convertToReminder(t.id)),
+    btn("Cancel", "ghost", () => { editing = null; render(); })
+  ]));
+  return box;
+}
+
+/** Everything Abby guessed about a reminder, editable. */
+function remEditor(r) {
+  const box = document.createElement("div");
+  box.className = "edit";
+  box.addEventListener("click", e => e.stopPropagation());
+
+  const text = input("text", r.text);
+  text.setAttribute("aria-label", "Reminder");
+  box.appendChild(text);
+
+  const date = input("date", r.at);
+  const time = input("time", r.time || "");
+  const two = document.createElement("div");
+  two.className = "two";
+  two.appendChild(field("Day", date));
+  two.appendChild(field(r.time ? "Time" : "Time (blank = 6:40 & 5:00)", time));
+  box.appendChild(two);
+
+  box.appendChild(actions([
+    btn("Save", "go", async () => {
+      const v = text.value.trim();
+      await store.commit(s => {
+        const x = s.reminders.find(y => y.id === r.id);
+        if (!x) return;
+        if (v) { x.text = v; }
+        if (date.value) x.at = date.value;
+        x.time = time.value || null;
+        x.firedSlots = [];          // a changed time deserves a fresh chance to fire
+        x.firedAt = null;
+      });
+      await syncNotifications(store.state);
+      editing = null;
+      haptic("light");
+      render();
+    }),
+    btn("Make it a task", "move", () => convertToTask(r.id)),
+    btn("Cancel", "ghost", () => { editing = null; render(); })
+  ]));
+  return box;
+}
+
+/** The category is the AI's biggest guess, so moving between them is one tap. */
+async function convertToReminder(taskId) {
+  const now = new Date();
+  await store.commit(s => {
+    const i = s.tasks.findIndex(x => x.id === taskId);
+    if (i < 0) return;
+    const t = s.tasks[i];
+    s.tasks.splice(i, 1);
+    s.tasks.forEach((x, n) => { x.ord = n; });
+    s.reminders.push(makeReminder({
+      text: t.title,
+      at: t.due || todayKey(now),
+      time: null,
+      raw: t.raw || t.title
+    }));
+  });
+  await syncNotifications(store.state);
+  editing = null;
+  haptic("medium");
+  say("Moved to Don't forget.");
+  render();
+}
+
+async function convertToTask(remId) {
+  const now = new Date();
+  await store.commit(s => {
+    const i = s.reminders.findIndex(x => x.id === remId);
+    if (i < 0) return;
+    const r = s.reminders[i];
+    s.reminders.splice(i, 1);
+    const t = makeTask(r.text, s.tasks.length, s.defaultEst, now, Date.now());
+    t.due = r.at;
+    t.dueKind = "Due";
+    s.tasks.push(t);
+  });
+  await syncNotifications(store.state);
+  editing = null;
+  haptic("medium");
+  say("Moved to Tonight.");
+  render();
 }
 
 function remRow(r, now) {
   const late = overdueNote(r, now);
+  const bits = [{ text: whenWord(r, now), cls: late ? "soon" : "due" }];
+  if (!r.time) bits.push({ text: "6:40 & 5:00", cls: "guess" });
+  if (editing !== r.id) bits.push({ text: "tap to edit", cls: "tap" });
+
   return row({
     done: false,
     title: r.text,
-    bits: [{ text: whenWord(r, now), cls: late ? "soon" : "due" }],
+    bits,
     onToggle: () => doneReminder(r.id),
-    onDelete: () => deleteReminder(r.id)
+    onDelete: () => deleteReminder(r.id),
+    onEdit: () => { editing = editing === r.id ? null : r.id; render(); },
+    editor: editing === r.id ? remEditor(r) : null
   });
 }
 
