@@ -33,8 +33,10 @@ function copyTree(from, to, rewrite) {
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
-// pwa/ becomes the root; ../shared/ becomes ./shared/
-copyTree(join(ROOT, "pwa"), DIST, src => src.split("../shared/").join("shared/"));
+// pwa/ becomes the root, so ../shared/ has to become ./shared/ — WITH the
+// leading "./". A bare "shared/engine.js" is a package specifier to an ES
+// module loader, not a relative path, and the browser refuses to resolve it.
+copyTree(join(ROOT, "pwa"), DIST, src => src.split("../shared/").join("./shared/"));
 copyTree(join(ROOT, "shared"), join(DIST, "shared"), src => src);
 
 // The app is Abby, and it is not a browser tab.
@@ -98,3 +100,30 @@ if (offenders.length) {
   process.exit(1);
 }
 console.log("iOS syntax check: clean");
+
+/* Every import specifier must be relative or absolute. A bare one like
+   "shared/engine.js" is a package name to an ES module loader and fails at
+   run time with "does not resolve to a valid URL" — which looks like a dead
+   app, not a build mistake. Catch it here where it's obvious. */
+const bareImports = [];
+(function scanImports(dir) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) { scanImports(p); continue; }
+    if (!name.endsWith(".js")) continue;
+    const src = readFileSync(p, "utf8");
+    const re = /\b(?:import|export)\b[^;'"]*?from\s+["']([^"']+)["']/g;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      const spec = m[1];
+      if (!/^(\.{1,2}\/|\/|[a-z]+:)/i.test(spec)) bareImports.push(`${p}: "${spec}"`);
+    }
+  }
+})(DIST);
+
+if (bareImports.length) {
+  console.error("\nBlocked — bare import specifiers won't resolve in a browser:\n  " +
+    bareImports.join("\n  "));
+  process.exit(1);
+}
+console.log("import specifiers: all relative");
