@@ -231,7 +231,7 @@ function finish(id, how) {
 
   if (store.config.cloudUrl && store.config.cloudKey) {
     store.pull().then(render);
-    store.startPolling(45000);
+    store.startLive();
   }
   if (store.config.icsUrl) {
     const r = await fetchCalendar(store.config.icsUrl, Date.now() - 2 * 3600000, Date.now() + 3 * 86400000);

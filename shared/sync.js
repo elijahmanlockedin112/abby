@@ -114,6 +114,104 @@ export async function cloudPut(cfg, state, vault) {
   }
 }
 
+/* ---------------------------------------------------------- live stream
+   Firebase's REST endpoint speaks server-sent events if you ask for them.
+   That's a real push: the other device's change lands here in well under a
+   second, and nothing is spent in between.
+
+   EventSource can't set an Accept header, so this reads the body stream
+   with fetch. Supported on iOS 14.5+, Chrome, and the Capacitor webview;
+   where it isn't, the caller falls back to polling.
+
+   The frames look like:
+     event: put
+     data: {"path":"/","data":{...}}
+*/
+export function cloudStreamSupported() {
+  return typeof fetch === "function" &&
+    typeof ReadableStream === "function" &&
+    typeof TextDecoder === "function";
+}
+
+export function cloudStream(cfg, { onData, onStatus }) {
+  const url = cloudEndpoint(cfg);
+  if (!url || !cloudStreamSupported()) return null;
+
+  let stop = false;
+  let ctl = null;
+  let attempt = 0;
+
+  async function connect() {
+    if (stop) return;
+    ctl = new AbortController();
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "text/event-stream" },
+        cache: "no-store",
+        signal: ctl.signal
+      });
+      if (!res.ok || !res.body) throw new Error("stream " + res.status);
+
+      attempt = 0;
+      if (onStatus) onStatus({ live: true });
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+
+      while (!stop) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+
+        // Frames are separated by a blank line.
+        let cut;
+        while ((cut = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, cut);
+          buf = buf.slice(cut + 2);
+
+          let event = "", data = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+          }
+          if (event !== "put" && event !== "patch") continue;
+
+          let parsed = null;
+          try { parsed = JSON.parse(data); } catch { continue; }
+          if (!parsed || typeof parsed !== "object") continue;
+
+          // A root put carries the whole record; anything deeper means a
+          // partial change, and re-reading is simpler than patching by path.
+          if (parsed.path === "/" && parsed.data && typeof parsed.data === "object") {
+            onData(parsed.data);
+          } else {
+            onData(null);        // caller re-pulls
+          }
+        }
+      }
+    } catch (e) {
+      if (stop) return;
+      if (onStatus) onStatus({ live: false, reason: "dropped" });
+    }
+
+    if (stop) return;
+    // Reconnect with a short backoff; the connection is long-lived but a
+    // phone sleeping or changing network will break it routinely.
+    attempt = Math.min(attempt + 1, 5);
+    const wait = Math.min(15000, 500 * Math.pow(2, attempt)) + Math.random() * 400;
+    setTimeout(connect, wait);
+  }
+
+  connect();
+  return {
+    close() {
+      stop = true;
+      try { ctl && ctl.abort(); } catch {}
+    }
+  };
+}
+
 export function cloudStatusText(reason, status) {
   switch (reason) {
     case "off": return "Sync is off — this device only.";
@@ -133,6 +231,9 @@ export async function openStore() {
   let state = hydrate(await local.get(KEY_STATE));
   const listeners = new Set();
   let pollTimer = null;
+  let stream = null;
+  let live = false;
+  let visWired = false;
   let status = { cloud: cloudEndpoint(cfg) ? "pending" : "off", msg: "" };
   let vault = null;
 
@@ -231,20 +332,79 @@ export async function openStore() {
 
     onChange(cb) { listeners.add(cb); return () => listeners.delete(cb); },
 
-    /** Poll while a page is open and visible. Cheap, and avoids SSE edge cases. */
-    startPolling(everyMs = 45000) {
-      store.stopPolling();
+    /**
+     * Stay current. Streams if the platform can, polls if it can't, and
+     * always re-pulls when the page comes back to the foreground — a phone
+     * that slept through a change has to catch up somehow.
+     */
+    startLive() {
+      store.stopLive();
       if (!cloudEndpoint(cfg)) return;
+
+      const adopt = async raw => {
+        if (raw == null) { await store.pull(); return; }
+
+        let incoming = raw;
+        if (isEncrypted(incoming)) {
+          if (!vault || !vault.ok) {
+            status = { cloud: "error", msg: "The record is encrypted. Enter the passphrase in Setup." };
+            emit();
+            return;
+          }
+          if (incoming.salt && incoming.salt !== cfg.salt) {
+            cfg = await config.set({ salt: incoming.salt });
+            await openLock();
+          }
+          try { incoming = await vault.open(incoming); }
+          catch { status = { cloud: "error", msg: cloudStatusText("locked") }; emit(); return; }
+        }
+        if (merge(incoming)) {
+          await writeLocal();
+          status = { cloud: "ok", msg: "" };
+          emit();
+        }
+      };
+
+      stream = cloudStream(cfg, {
+        onData: adopt,
+        onStatus: st => {
+          live = !!st.live;
+          if (st.live) { status = { cloud: "ok", msg: "" }; emit(); }
+        }
+      });
+
+      // Backstop. Ticks every 5s but only actually pulls when the stream
+      // isn't carrying us — `live` is false at this point either way, so
+      // the decision has to be made inside the tick, not when arming it.
+      let sinceLastPull = 0;
       pollTimer = setInterval(() => {
-        if (typeof document === "undefined" || document.visibilityState === "visible") store.pull();
-      }, everyMs);
-      if (typeof document !== "undefined") {
+        if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+        sinceLastPull += 5;
+        const every = live ? 60 : 5;          // seconds
+        if (sinceLastPull < every) return;
+        sinceLastPull = 0;
+        store.pull();
+      }, 5000);
+
+      if (typeof document !== "undefined" && !visWired) {
+        visWired = true;
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") store.pull();
         });
       }
     },
-    stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    stopLive() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (stream) { try { stream.close(); } catch {} stream = null; }
+      live = false;
+    },
+
+    get live() { return live; },
+
+    /* Kept so older call sites don't break. */
+    startPolling() { store.startLive(); },
+    stopPolling() { store.stopLive(); }
   };
 
   // Another surface of this extension (popup vs new tab) wrote — adopt it.

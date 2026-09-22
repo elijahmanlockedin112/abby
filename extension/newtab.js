@@ -71,7 +71,9 @@ function render() {
 
   const st = store.status;
   $("syncChip").hidden = st.cloud === "off";
-  $("syncChip").textContent = st.cloud === "ok" ? "phone synced" : st.cloud === "pending" ? "syncing…" : "sync error";
+  $("syncChip").textContent = st.cloud === "ok"
+    ? (store.live ? "live" : "synced")
+    : st.cloud === "pending" ? "syncing…" : "sync error";
   $("syncChip").className = "chip " + (st.cloud === "ok" ? "ok" : st.cloud === "error" ? "crit" : "");
   $("syncMsg").textContent = st.cloud === "off"
     ? "Not linked to your phone. Options → Link your devices — paste the code, or copy this browser's."
@@ -468,7 +470,7 @@ async function checkArrival() {
 
   if (store.config.cloudUrl && store.config.cloudKey) {
     await store.pull();
-    store.startPolling(45000);
+    store.startLive();
   }
   loadCalendar();
 

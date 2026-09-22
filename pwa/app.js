@@ -374,7 +374,7 @@ function renderSync() {
     return;
   }
   note.textContent = st.cloud === "ok"
-    ? `Linked — same list as your PC.`
+    ? (store.live ? "Live — changes appear the moment they happen." : "Linked — same list as your PC.")
     : "Linking…";
   note.style.color = "var(--ink-3)";
 }
@@ -601,7 +601,7 @@ async function saveComposer() {
     // Pull first, so the phone shows the PC's list rather than its own copy.
     if (c.cloudUrl && c.cloudKey) {
       await store.pull();
-      store.startPolling(30000);
+      store.startLive();
       render();
     }
 
@@ -656,7 +656,7 @@ async function saveComposer() {
       });
       if (store.config.cloudUrl && store.config.cloudKey) {
         await store.pull();
-        store.startPolling(30000);
+        store.startLive();
       }
       $("noteMsg").textContent = "Saved.";
       setTimeout(() => { $("noteMsg").textContent = ""; }, 2000);
@@ -677,7 +677,7 @@ async function saveComposer() {
       out.style.color = "var(--ink-3)";
       const st = await store.pull();
       if (st.cloud === "ok") {
-        store.startPolling(30000);
+        store.startLive();
         out.textContent = `Linked — ${store.state.tasks.length} task${store.state.tasks.length === 1 ? "" : "s"} and ${store.state.reminders.length} reminder${store.state.reminders.length === 1 ? "" : "s"} from your PC.`;
         out.style.color = "var(--good)";
         haptic("medium");
