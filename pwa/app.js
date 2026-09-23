@@ -591,6 +591,7 @@ async function saveComposer() {
     $("apiKey").value = c.apiKey || "";
     $("cloudUrl").value = c.cloudUrl || "";
     $("cloudKey").value = c.cloudKey || "";
+    $("passphrase").value = c.passphrase || "";
 
     store.onChange(() => {
       $("bedBox").value = store.state.bedtime;
@@ -652,7 +653,8 @@ async function saveComposer() {
         name: $("nameBox").value.trim(),
         apiKey: $("apiKey").value.trim(),
         cloudUrl: $("cloudUrl").value.trim(),
-        cloudKey: $("cloudKey").value.trim()
+        cloudKey: $("cloudKey").value.trim(),
+        passphrase: $("passphrase").value.trim()
       });
       if (store.config.cloudUrl && store.config.cloudKey) {
         await store.pull();
@@ -670,6 +672,7 @@ async function saveComposer() {
 
       $("cloudUrl").value = r.config.cloudUrl;
       $("cloudKey").value = r.config.cloudKey;
+      if (r.config.passphrase) $("passphrase").value = r.config.passphrase;
       await store.setConfig(r.config);
       $("pasteLink").value = "";
 

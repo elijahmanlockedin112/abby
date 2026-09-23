@@ -57,6 +57,29 @@
     <div class="btnrow"><button class="sm" id="testCal">Test feed</button><span id="calResult" class="msg" style="align-self:center"></span></div>
   </div>
 
+  <div class="panel" id="cryptoPanel">
+    <h3>Encryption</h3>
+    <p class="sub">
+      Your database rules let anyone who knows the key path read what's stored there. A passphrase
+      makes that pointless — everything is encrypted on this device before it's sent, so the database
+      holds nothing but ciphertext. Not the host, not anyone with the link, not me.
+    </p>
+
+    <label class="fld" for="passphrase">Passphrase</label>
+    <div class="keyrow" style="display:flex;gap:8px">
+      <input type="text" id="passphrase" spellcheck="false" autocomplete="off" placeholder="six words, generated below">
+      <button class="sm" id="genPhrase">Generate</button>
+    </div>
+    <p class="sub" style="margin-top:8px">
+      It never leaves this device and is never written to the database. The link code carries it to
+      your other devices, which is the only way they can read anything.
+      <b>Lose it and the synced copy is genuinely unrecoverable</b> — that's the point of it.
+    </p>
+
+    <div class="btnrow"><button class="sm" id="testCrypto">Check it works</button></div>
+    <div class="result" id="cryptoResult" hidden></div>
+  </div>
+
   <div class="panel" id="linkPanel">
     <h3>Link your devices</h3>
     <p class="sub">

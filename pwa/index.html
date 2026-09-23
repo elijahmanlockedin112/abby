@@ -303,6 +303,10 @@ li.editing{background:var(--surface);border-radius:12px;padding-inline:10px;marg
       <p class="note">Extension → Options → <b>Copy link code</b>, then paste it here. Fills in everything below at once.</p>
       <p class="note" id="linkResult"></p>
 
+      <label class="fld" for="passphrase" style="margin-top:14px">Encryption passphrase</label>
+      <input type="text" id="passphrase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="same as your PC">
+      <p class="note">Everything is encrypted on this phone before it's sent. The link code carries this for you — you shouldn't need to type it.</p>
+
       <label class="fld" for="cloudUrl" style="margin-top:14px">Sync — database URL</label>
       <input type="url" id="cloudUrl" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…firebaseio.com">
       <label class="fld" for="cloudKey" style="margin-top:10px">Sync — shared key</label>

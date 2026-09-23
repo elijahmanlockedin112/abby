@@ -8,6 +8,7 @@ import { fetchCalendar, calStatusText } from "../shared/ics.js";
 import { makeAI, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL } from "../shared/ai.js";
 import { fetchGitHub, ghReasonText } from "../shared/sources.js";
 import { encodeLink, decodeLink, linkReasonText, describeLink } from "../shared/linkcode.js";
+import { suggestPassphrase, openVault, cryptoAvailable } from "../shared/crypto.js";
 import { $, initTheme } from "../shared/ui.js";
 
 let store = null;
@@ -48,6 +49,7 @@ function fillHours() {
   $("icsUrl").value = c.icsUrl || "";
   $("cloudUrl").value = c.cloudUrl || "";
   $("cloudKey").value = c.cloudKey || "";
+  $("passphrase").value = c.passphrase || "";
   $("apiKey").value = c.apiKey || "";
   $("model").value = c.model || "";
   $("githubUser").value = c.githubUser || "";
@@ -74,13 +76,43 @@ function fillHours() {
 
   $("genKey").addEventListener("click", () => { $("cloudKey").value = randomKey(); });
 
+  /* ---- encryption ---- */
+  if (!cryptoAvailable()) {
+    $("genPhrase").disabled = true;
+    $("testCrypto").disabled = true;
+    say("cryptoResult", "This browser can't do WebCrypto, so encryption is unavailable here.", "bad");
+  }
+
+  $("genPhrase").addEventListener("click", () => {
+    $("passphrase").value = suggestPassphrase();
+    paintLink();
+    say("cryptoResult", "Generated. Save, then copy the link code to your other devices — it carries this phrase so they can read what you write.", "ok");
+  });
+
+  $("testCrypto").addEventListener("click", async () => {
+    const phrase = $("passphrase").value.trim();
+    if (!phrase) { say("cryptoResult", "No passphrase set — sync is plaintext.", "bad"); return; }
+    say("cryptoResult", "Checking…", "busy");
+    const v = await openVault({ passphrase: phrase, salt: store.config.salt });
+    if (!v.ok) { say("cryptoResult", "Couldn't build a key from that phrase.", "bad"); return; }
+    const probe = { tasks: [{ title: "Biology ch 4 review" }], reminders: [] };
+    const sealed = await v.seal(probe);
+    const wire = JSON.stringify(sealed);
+    const leaks = wire.includes("Biology");
+    const back = await v.open(sealed);
+    say("cryptoResult",
+      leaks ? "Something is wrong — the text was readable in the sealed record."
+            : `Working. A task called "Biology ch 4 review" seals to ${sealed.ct.slice(0, 18)}… and comes back intact.`,
+      leaks ? "bad" : "ok");
+  });
+
   /* ---- the link code ---- */
   function currentLinkCfg() {
     return {
       cloudUrl: $("cloudUrl").value.trim(),
       cloudKey: $("cloudKey").value.trim(),
       salt: store.config.salt || "",
-      passphrase: store.config.passphrase || ""
+      passphrase: $("passphrase").value.trim() || store.config.passphrase || ""
     };
   }
   function paintLink() {
@@ -92,7 +124,7 @@ function fillHours() {
     $("linkCode").textContent = code || "—";
   }
   paintLink();
-  for (const id of ["cloudUrl", "cloudKey"]) $(id).addEventListener("input", paintLink);
+  for (const id of ["cloudUrl", "cloudKey", "passphrase"]) $(id).addEventListener("input", paintLink);
 
   $("showLink").addEventListener("click", () => {
     $("linkRow").hidden = !$("linkRow").hidden;
@@ -138,6 +170,7 @@ function fillHours() {
       icsUrl: $("icsUrl").value.trim(),
       cloudUrl: $("cloudUrl").value.trim(),
       cloudKey: $("cloudKey").value.trim(),
+      passphrase: $("passphrase").value.trim(),
       apiKey: $("apiKey").value.trim(),
       provider: $("provOpenai").checked ? "openai" : "anthropic",
       model: $("model").value.trim() || PROVIDERS[$("provOpenai").checked ? "openai" : "anthropic"].defaultModel,
